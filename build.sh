@@ -1,0 +1,1 @@
+cd ~/code/vrterm/; gcc vrterm.c -g -o vrterm
