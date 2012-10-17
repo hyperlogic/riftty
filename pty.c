@@ -13,7 +13,7 @@ int Pty_Make(struct Pty **pty_out)
         return 0;
     }
 
-    // NOTE: copied from iTerm2 PTYTask.m
+    // NOTE: shamelessly copied from iTerm2 PTYTask.m
 #define CTRLKEY(c) ((c)-'A'+1)
 
     int isUTF8 = 0;
@@ -50,15 +50,16 @@ int Pty_Make(struct Pty **pty_out)
     pty->win.ws_xpixel = 0;
     pty->win.ws_ypixel = 0;
 
-    // Save real stderr so we can fprintf to it instead of pty for errors.
+    /* Save real stderr so we can fprintf to it instead of pty for errors. */
     int STDERR = dup(STDERR_FILENO);
     FILE *parent_stderr = fdopen(STDERR, "w");
     setvbuf(parent_stderr, NULL, _IONBF, 0);
 
     int pid = forkpty(&pty->master_fd, pty->name, &pty->term, &pty->win);
     if (pid == (pid_t)0) {
+        /* child process */
         char* const argv[] = {"login", "-pfl", "ajt", NULL};
-        int sts = execvp(*argv, argv);
+        int status = execvp(*argv, argv);
 
         /* exec error */
         fprintf(parent_stderr, "## exec failed ##\n");
@@ -69,7 +70,7 @@ int Pty_Make(struct Pty **pty_out)
     } else if (pid < (pid_t)0) {
         fprintf(stderr, "forkpty() failed: %s\n", strerror(errno));
     } else if (pid > (pid_t)0) {
-        // parent
+        /* parent process */
         pty->child_pid = pid;
         fprintf(stdout, "pty name = %s\n", pty->name);
         fprintf(stdout, "child pid = %d\n", pid);
@@ -97,8 +98,9 @@ int Pty_Read(struct Pty *pty, char *buffer, size_t size)
     poll(&pfd, 1, 0);
     if (pfd.revents & POLLRDBAND) {
         int bytes_read = read(pty->master_fd, buffer, size - 1);
+        // null terminate string.
         if (bytes_read >= 0)
-            buffer[bytes_read] = 0; // null terminate
+            buffer[bytes_read] = 0;
         return bytes_read;
     } else {
         return 0;
