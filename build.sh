@@ -1,1 +1,1 @@
-cd ~/code/vrterm/; gcc vrterm.c -g -o vrterm
+gcc riftty.c -g -o riftty

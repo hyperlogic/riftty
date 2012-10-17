@@ -60,7 +60,7 @@ int Pty_Make(struct Pty **pty_out)
     pty->win.ws_xpixel = 0;
     pty->win.ws_ypixel = 0;
 
-    // Save real stderr so fprintf writes to it instead of pty
+    // Save real stderr so we can fprintf to it instead of pty for errors.
     int STDERR = dup(STDERR_FILENO);
     FILE *parent_stderr = fdopen(STDERR, "w");
     setvbuf(parent_stderr, NULL, _IONBF, 0);
@@ -77,7 +77,7 @@ int Pty_Make(struct Pty **pty_out)
         sleep(10);
         exit(-1);
     } else if (pid < (pid_t)0) {
-        fprintf(stderr, "error! no forky: %s\n", strerror(errno));
+        fprintf(stderr, "forkpty() failed: %s\n", strerror(errno));
     } else if (pid > (pid_t)0) {
         // parent
         pty->child_pid = pid;
