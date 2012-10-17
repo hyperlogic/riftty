@@ -1,1 +1,1 @@
-gcc riftty.c -g -o riftty
+gcc riftty.c pty.c -g -o riftty
