@@ -1,2 +1,3 @@
 riftty
-riftty.dSYM/
+*.o
+*.d

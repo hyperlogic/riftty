@@ -28,7 +28,7 @@ $L_FLAGS = [`sdl-config --libs`.chomp,
             '-framework ApplicationServices'
            ]
 
-$OBJECTS = ['SDLMain.o',
+$OBJECTS = ['darwin/SDLMain.o',
             'riftty.o',
             'pty.o',
             'keyboard.o',
