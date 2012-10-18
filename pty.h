@@ -1,6 +1,10 @@
 #ifndef PTY_H
 #define PTY_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <util.h>
 #include <sys/syslimits.h>
 
@@ -23,5 +27,9 @@ int Pty_Send(struct Pty *pty, const char *buffer, size_t size);
 
 // returns number of bytes read into buffer.
 int Pty_Read(struct Pty *pty, char *buffer, size_t size);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

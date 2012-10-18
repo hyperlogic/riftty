@@ -59,7 +59,7 @@ int Pty_Make(struct Pty **pty_out)
     if (pid == (pid_t)0) {
         /* child process */
         char* const argv[] = {"login", "-pfl", "ajt", NULL};
-        int status = execvp(*argv, argv);
+        execvp(*argv, argv);
 
         /* exec error */
         fprintf(parent_stderr, "## exec failed ##\n");
@@ -89,6 +89,7 @@ int Pty_Destroy(struct Pty *pty)
 int Pty_Send(struct Pty *pty, const char* buffer, size_t size)
 {
     write(pty->master_fd, buffer, size);
+    return 1;
 }
 
 int Pty_Read(struct Pty *pty, char *buffer, size_t size)

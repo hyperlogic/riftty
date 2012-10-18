@@ -1,3 +1,6 @@
 [submodule "glyphblaster"]
 	path = glyphblaster
 	url = https://github.com/hyperlogic/glyphblaster.git
+[submodule "abaci"]
+	path = abaci
+	url = https://github.com/hyperlogic/abaci.git
