@@ -1,0 +1,3 @@
+[submodule "glyphblaster"]
+	path = glyphblaster
+	url = https://github.com/hyperlogic/glyphblaster.git
