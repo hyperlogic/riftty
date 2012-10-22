@@ -4,7 +4,7 @@
 #include "pty.h"
 #include "keyboard.h"
 #include "opengl.h"
-#include "config.h"
+#include "appconfig.h"
 
 #include "glyphblaster/src/gb_context.h"
 #include "glyphblaster/src/gb_font.h"
@@ -98,8 +98,8 @@ int main(int argc, char* argv[])
     const SDL_VideoInfo* videoInfo = SDL_GetVideoInfo();
 
     // TODO: get this from config file.
-    s_config = new Config(false, false, 1024, 768);
-    Config& config = *s_config;
+    s_config = new AppConfig(false, false, 1024, 768);
+    AppConfig& config = *s_config;
     config.title = "riftty";
 
     // msaa

@@ -7,7 +7,8 @@ $C_FLAGS = ['-Wall',
             `freetype-config --cflags`.chomp,
             '-DDARWIN',
             "-Iglyphblaster/src",
-            "-Iabaci/src"
+            "-Iabaci/src",
+            "-fnested-functions",  # mintty needs this.
            ]
 
 $DEBUG_C_FLAGS = ['-g',
@@ -33,7 +34,21 @@ $OBJECTS = ['darwin/SDLMain.o',
             'pty.o',
             'keyboard.o',
             'render.o',
+            'appconfig.o',
+
+            # mintty
             'config.o',
+            'term.o',
+            'termline.o',
+            'termout.o',
+            'termclip.o',
+            'minibidi.o',
+            'charset.o',
+            'child.o',
+            'std.o',
+            'win.o',
+
+            # glyphblaster
             'glyphblaster/src/gb_cache.o',
             'glyphblaster/src/gb_context.o',
             'glyphblaster/src/gb_error.o',

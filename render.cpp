@@ -1,6 +1,6 @@
 #include "render.h"
 #include "opengl.h"
-#include "config.h"
+#include "appconfig.h"
 
 void DrawTexturedQuad(uint32_t gl_tex, Vector2f const& origin, Vector2f const& size,
                       Vector2f const& uv_origin, Vector2f const& uv_size,
