@@ -1,7 +1,7 @@
 #ifndef STD_H
 #define STD_H
 
-#include <cygwin/version.h>
+//#include <cygwin/version.h>
 
 #include <assert.h>
 #include <limits.h>
@@ -15,14 +15,14 @@
 #include <wchar.h>
 #include <errno.h>
 
-#if CYGWIN_VERSION_API_MINOR >= 91
+#if 0 //CYGWIN_VERSION_API_MINOR >= 91
 #include <argz.h>
 #else
 int argz_create (char *const argv[], char **argz, size_t *argz_len);
 void argz_stringify (char *argz, size_t argz_len, int sep);
 #endif
 
-#if CYGWIN_VERSION_API_MINOR >= 74
+#if 1 //CYGWIN_VERSION_API_MINOR >= 74
 #include <wctype.h>
 #else
 int iswalnum(wint_t);
@@ -30,22 +30,23 @@ int iswalpha(wint_t);
 int iswspace(wint_t);
 #endif
 
-#if CYGWIN_VERSION_API_MINOR < 53
+#if 0 //CYGWIN_VERSION_API_MINOR < 53
 #define strlcpy(dst, src, len) snprintf(dst, len, "%s", src)
 #endif
 
-#if CYGWIN_VERSION_API_MINOR < 70
+#if 0 //CYGWIN_VERSION_API_MINOR < 70
 int asprintf(char **, const char *, ...);
 int vasprintf(char **, const char *, va_list);
 #endif
 
 char *asform(const char *fmt, ...);
 
+#if 0
 #define WINVER 0x500  // Windows 2000
 #define _WIN32_WINNT WINVER
 #define _WIN32_IE WINVER
-
 #include <windef.h>
+#endif
 
 #ifdef DMALLOC
 #include <dmalloc.h>

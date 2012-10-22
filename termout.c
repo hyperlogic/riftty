@@ -6,10 +6,20 @@
 #include "termpriv.h"
 
 #include "win.h"
-#include "appinfo.h"
+//#include "appinfo.h"
 #include "charset.h"
 #include "child.h"
-#include "print.h"
+//#include "print.h"
+
+// from mintty appinfo.h
+#define MAJOR_VERSION  1
+#define MINOR_VERSION  1
+#define PATCH_NUMBER   1
+#define DECIMAL_VERSION \
+  (MAJOR_VERSION * 10000 + MINOR_VERSION * 100 + PATCH_NUMBER)
+
+#define MIN(a, b)  (((a) < (b)) ? (a) : (b))
+#define MAX(a, b)  (((a) > (b)) ? (a) : (b))
 
 #include <sys/termios.h>
 
@@ -105,14 +115,16 @@ insert_char(int n)
     term_check_boundary(curs->x + n, curs->y);
   line = term.lines[curs->y];
   if (dir < 0) {
-    for (int j = 0; j < m; j++)
+    int j;
+    for (j = 0; j < m; j++)
       move_termchar(line, line->chars + curs->x + j,
                     line->chars + curs->x + j + n);
     while (n--)
       line->chars[curs->x + m++] = term.erase_char;
   }
   else {
-    for (int j = m; j--;)
+    int j;
+    for (j = m; j--;)
       move_termchar(line, line->chars + curs->x + j + n,
                     line->chars + curs->x + j);
     while (n--)
@@ -329,6 +341,7 @@ do_ctrl(char c)
 static void
 do_esc(uchar c)
 {
+  int i, j;
   term_cursor *curs = &term.curs;
   term.state = NORMAL;
   switch (CPAIR(term.esc_mod, c)) {
@@ -375,9 +388,9 @@ do_esc(uchar c)
     when 'H':  /* HTS: set a tab */
       term.tabs[curs->x] = true;
     when CPAIR('#', '8'):    /* DECALN: fills screen with Es :-) */
-      for (int i = 0; i < term.rows; i++) {
+      for (i = 0; i < term.rows; i++) {
         termline *line = term.lines[i];
-        for (int j = 0; j < term.cols; j++) {
+        for (j = 0; j < term.cols; j++) {
           line->chars[j] =
             (termchar){.cc_next = 0, .chr = 'E', .attr = ATTR_DEFAULT};
         }
@@ -421,7 +434,8 @@ do_sgr(void)
  /* Set Graphics Rendition. */
   uint argc = term.csi_argc;
   uint attr = term.curs.attr;
-  for (uint i = 0; i < argc; i++) {
+  uint i;
+  for (i = 0; i < argc; i++) {
     switch (term.csi_argv[i]) {
       when 0: attr = ATTR_DEFAULT | (attr & ATTR_PROTECTED);
       when 1: attr |= ATTR_BOLD;
@@ -481,7 +495,8 @@ do_sgr(void)
 static void
 set_modes(bool state)
 {
-  for (uint i = 0; i < term.csi_argc; i++) {
+  uint i;
+  for (i = 0; i < term.csi_argc; i++) {
     int arg = term.csi_argv[i];
     if (term.esc_mod) {
       switch (arg) {
@@ -713,10 +728,12 @@ do_csi(uchar c)
     when 'l' or CPAIR('?', 'l'):  /* RM: toggle modes to low */
       set_modes(false);
     when 'i' or CPAIR('?', 'i'):  /* MC: Media copy */
+#if 0
       if (arg0 == 5 && *cfg.printer) {
         term.printing = true;
         term.only_printing = !term.esc_mod;
         term.print_state = 0;
+        assert(0);
         printer_start_job(cfg.printer);
       }
       else if (arg0 == 4 && term.printing) {
@@ -724,16 +741,18 @@ do_csi(uchar c)
         while (term.printbuf[--term.printbuf_pos] != '\e');
         term_print_finish();
       }
+#endif
     when 'g':        /* TBC: clear tabs */
       if (!arg0)
         term.tabs[curs->x] = false;
       else if (arg0 == 3) {
-        for (int i = 0; i < term.cols; i++)
+        int i;
+        for (i = 0; i < term.cols; i++)
           term.tabs[i] = false;
       }
     when 'r': {      /* DECSTBM: set scroll margins */
       int top = arg0_def1 - 1;
-      int bot = (arg1 ? min(arg1, term.rows) : term.rows) - 1;
+      int bot = (arg1 ? MIN(arg1, term.rows) : term.rows) - 1;
       if (bot > top) {
         term.marg_top = top;
         term.marg_bot = bot;
@@ -787,7 +806,7 @@ do_csi(uchar c)
       win_set_chars(term.rows, arg0 ?: cfg.cols);
       term.selected = false;
     when 'X': {      /* ECH: write N spaces w/o moving cursor */
-      int n = min(arg0_def1, term.cols - curs->x);
+      int n = MIN(arg0_def1, term.cols - curs->x);
       int p = curs->x;
       term_check_boundary(curs->x, curs->y);
       term_check_boundary(curs->x + n, curs->y);
@@ -961,7 +980,8 @@ do_cmd(void)
       }
       win_check_glyphs(wcs, n);
       s = term.cmd_buf;
-      for (size_t i = 0; i < n; i++) {
+      size_t i;
+      for (i = 0; i < n; i++) {
         *s++ = ';';
         if (wcs[i])
           s += sprintf(s, "%u", wcs[i]);
@@ -975,6 +995,7 @@ do_cmd(void)
 void
 term_print_finish(void)
 {
+#if 0
   if (term.printing) {
     printer_write(term.printbuf, term.printbuf_pos);
     free(term.printbuf);
@@ -983,6 +1004,7 @@ term_print_finish(void)
     printer_finish_job();
     term.printing = term.only_printing = false;
   }
+#endif
 }
 
 /* Empty the input buffer */
@@ -1006,7 +1028,7 @@ term_write(const char *buf, uint len)
   */
   if (term_selecting()) {
     if (term.inbuf_pos + len > term.inbuf_size) {
-      term.inbuf_size = max(term.inbuf_pos, term.inbuf_size * 4 + 4096);
+      term.inbuf_size = MAX(term.inbuf_pos, term.inbuf_size * 4 + 4096);
       term.inbuf = renewn(term.inbuf, term.inbuf_size);
     }
     memcpy(term.inbuf + term.inbuf_pos, buf, len);
@@ -1249,8 +1271,10 @@ term_write(const char *buf, uint len)
     }
   }
   win_schedule_update();
+#if 0
   if (term.printing) {
     printer_write(term.printbuf, term.printbuf_pos);
     term.printbuf_pos = 0;
   }
+#endif
 }

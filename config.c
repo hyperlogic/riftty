@@ -3,14 +3,36 @@
 // Based on code from PuTTY-0.60 by Simon Tatham and team.
 // Licensed under the terms of the GNU General Public License v3 or later.
 
+#include <stddef.h>
 #include "term.h"
-#include "ctrls.h"
-#include "print.h"
+//#include "ctrls.h"
+//#include "print.h"
 #include "charset.h"
 #include "win.h"
 
 #include <termios.h>
-#include <sys/cygwin.h>
+//#include <sys/cygwin.h>
+
+config cfg, new_cfg;
+static config file_cfg;
+
+bool
+parse_colour(string s, colour *cp)
+{
+  uint r, g, b;
+  if (sscanf(s, "%u,%u,%u%c", &r, &g, &b, &(char){0}) == 3);
+  else if (sscanf(s, "#%2x%2x%2x%c", &r, &g, &b, &(char){0}) == 3);
+  else if (sscanf(s, "rgb:%2x/%2x/%2x%c", &r, &g, &b, &(char){0}) == 3);
+  else if (sscanf(s, "rgb:%4x/%4x/%4x%c", &r, &g, &b, &(char){0}) == 3)
+    r >>=8, g >>= 8, b >>= 8;
+  else
+    return false;  
+
+  *cp = make_colour(r, g, b);
+  return true;
+}
+
+#if 0
 
 #if CYGWIN_VERSION_API_MINOR >= 222
 static wstring rc_filename = 0;
@@ -98,9 +120,6 @@ const config default_cfg = {
     [BOLD_WHITE_I]   = 0xFFFFFF,
   }
 };
-
-config cfg, new_cfg;
-static config file_cfg;
 
 typedef enum {
   OPT_BOOL, OPT_MOD, OPT_TRANS, OPT_CURSOR, OPT_FONTSMOOTH,
@@ -287,7 +306,8 @@ static opt_val
 static int
 find_option(string name)
 {
-  for (uint i = 0; i < lengthof(options); i++) {
+  uint i;
+  for (i = 0; i < lengthof(options); i++) {
     if (!strcasecmp(name, options[i].name))
       return i;
   }
@@ -392,7 +412,8 @@ set_option(string name, string val_str)
       int len = strlen(val_str);
       if (!len)
         break;
-      for (opt_val *o = opt_vals[type]; o->name; o++) {
+      opt_val *o;
+      for (o = opt_vals[type]; o->name; o++) {
         if (!strncasecmp(val_str, o->name, len)) {
           *(char *)val_p = o->val;
           return i;
@@ -490,7 +511,8 @@ load_config(string filename)
 void
 copy_config(config *dst_p, const config *src_p)
 {
-  for (uint i = 0; i < lengthof(options); i++) {
+  uint i;
+  for (i = 0; i < lengthof(options); i++) {
     opt_type type = options[i].type;
     if (!(type & OPT_LEGACY)) {
       uint offset = options[i].offset;
@@ -561,7 +583,8 @@ save_config(void)
     }
   }
   else {
-    for (uint j = 0; j < file_opts_num; j++) {
+    uint j;
+    for (j = 0; j < file_opts_num; j++) {
       uint i = file_opts[j];
       opt_type type = options[i].type;
       if (!(type & OPT_LEGACY)) {
@@ -608,7 +631,8 @@ static void
 apply_config(void)
 {
   // Record what's changed
-  for (uint i = 0; i < lengthof(options); i++) {
+  uint i;
+  for (i = 0; i < lengthof(options); i++) {
     opt_type type = options[i].type;
     uint offset = options[i].offset;
     void *val_p = (void *)&cfg + offset;
@@ -1059,3 +1083,5 @@ setup_config_box(controlbox * b)
     dlg_stdcheckbox_handler, &new_cfg.confirm_exit
   );
 }
+
+#endif // #if 0

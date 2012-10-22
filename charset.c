@@ -12,8 +12,8 @@
 #include <langinfo.h>
 #endif
 
-#include <winbase.h>
-#include <winnls.h>
+//#include <winbase.h>
+//#include <winnls.h>
 
 static cs_mode mode = CSM_DEFAULT;
 
@@ -38,6 +38,19 @@ static const struct {
   ushort cp;
   string name;
 }
+
+#ifndef CP_UTF8
+#define CP_UTF8 65001
+#endif
+
+#ifndef CP_ACP
+#define CP_ACP 0
+#endif
+
+#ifndef CP_OEMCP
+#define CP_OEMCP 1
+#endif
+
 cs_names[] = {
   { CP_UTF8, "UTF-8"},
   { CP_UTF8, "UTF8"},
@@ -124,7 +137,8 @@ strtoupper(char *dst, string src)
 static string
 cs_name(uint cp)
 {
-  for (uint i = 0; i < lengthof(cs_names); i++) {
+  uint i;
+  for (i = 0; i < lengthof(cs_names); i++) {
     if (cp == cs_names[i].cp)
       return cs_names[i].name;
   }
@@ -141,14 +155,19 @@ cs_name(uint cp)
 static bool
 valid_codepage(uint cp)
 {
+#if 0
   CPINFO cpi;
   return GetCPInfo(cp, &cpi);
+#else
+  return false;
+#endif
 }
 
 // Find the codepage number for a charset name.
 static uint
 cs_codepage(string name)
 {
+#if 0
   uint cp = CP_ACP;
   char upname[strlen(name) + 1];
   strtoupper(upname, name);
@@ -166,7 +185,8 @@ cs_codepage(string name)
   }
   else {
     // Search the charset table.
-    for (uint i = 0; i < lengthof(cs_names); i++) {
+    uint i;
+    for (i = 0; i < lengthof(cs_names); i++) {
       if (!strcasecmp(name, cs_names[i].name)) {
         cp = cs_names[i].cp;
         break;
@@ -178,13 +198,17 @@ cs_codepage(string name)
     cp == CP_ACP ? GetACP() :
     cp == CP_OEMCP ? GetOEMCP() :
     valid_codepage(cp) ? cp : GetACP();
+#else
+  return 0;
+#endif
 }
 
 static void
 init_locale_menu(void)
 {
   uint count = 0;
-  
+
+#if 0
   void add_lcid(LCID lcid) {
     char locale[8];
     int lang_len = GetLocaleInfo(lcid, LOCALE_SISO639LANGNAME,
@@ -199,12 +223,15 @@ init_locale_menu(void)
         return;
     locale_menu[count++] = strdup(locale);
   }
+#endif
   
   locale_menu[count++] = "(Default)";
+#if 0
   add_lcid(GetUserDefaultUILanguage());
   add_lcid(LOCALE_USER_DEFAULT);
   add_lcid(LOCALE_SYSTEM_DEFAULT);
   add_lcid(GetSystemDefaultUILanguage());
+#endif
   locale_menu[count++] = "C";
 }
 
@@ -212,14 +239,14 @@ static void
 init_charset_menu(void)
 {
   charset_menu[0] = "(Default)";
-  
+  uint i;
   string *p = charset_menu + 1;
-  for (uint i = 0; i < lengthof(cs_descs); i++) {
+  for (i = 0; i < lengthof(cs_descs); i++) {
     uint cp = cs_descs[i].cp;
     if (valid_codepage(cp) || (28591 <= cp && cp <= 28606))
       *p++ = asform("%s (%s)", cs_name(cp), cs_descs[i].desc);
   }
-  
+#if 0
   string oem_cs = cs_name(GetOEMCP());
   if (*oem_cs == 'C')
     *p++ = asform("%s (OEM codepage)", oem_cs);
@@ -227,11 +254,13 @@ init_charset_menu(void)
   string ansi_cs = cs_name(GetACP());
   if (*ansi_cs == 'C')
     *p++ = asform("%s (ANSI codepage)", ansi_cs);
+#endif
 }
 
 static void
 get_cp_info(void)
 {
+#if 0
   CPINFOEXW cpi;
   GetCPInfoExW(codepage, 0, &cpi);
   cs_cur_max = cpi.MaxCharSize;
@@ -240,6 +269,7 @@ get_cp_info(void)
     WideCharToMultiByte(codepage, 0, &cp_default_wchar, 1,
                         cp_default_char, sizeof cp_default_char - 1, 0, 0);
   cp_default_char[len] = 0;
+#endif
 }
 
 static void
@@ -397,7 +427,7 @@ cs_wcntombn(char *s, const wchar *ws, size_t len, size_t wlen)
     return i;
   }
 #endif
-  return WideCharToMultiByte(codepage, 0, ws, wlen, s, len, 0, 0);
+  return 0;//WideCharToMultiByte(codepage, 0, ws, wlen, s, len, 0, 0);
 }
 
 int
@@ -407,7 +437,7 @@ cs_mbstowcs(wchar *ws, const char *s, size_t wlen)
   if (use_locale)
     return mbstowcs(ws, s, wlen);
 #endif
-  return MultiByteToWideChar(codepage, 0, s, -1, ws, wlen) - 1;
+  return 0;//MultiByteToWideChar(codepage, 0, s, -1, ws, wlen) - 1;
 }
 
 int
@@ -416,7 +446,8 @@ cs_mb1towc(wchar *pwc, char c)
 #if HAS_LOCALES
   if (use_locale)
     return mbrtowc(pwc, &c, 1, 0);
-#endif
+  return 0;
+#else
 
   // The Windows way
   static int sn;
@@ -464,12 +495,13 @@ cs_mb1towc(wchar *pwc, char c)
       return -1; // Encoding error
   }
   return sn < cs_cur_max ? -2 : -1;
+#endif
 }
 
 wchar
 cs_btowc_glyph(char c)
 {
   wchar wc = 0;
-  MultiByteToWideChar(codepage, MB_USEGLYPHCHARS, &c, 1, &wc, 1);
+  //MultiByteToWideChar(codepage, MB_USEGLYPHCHARS, &c, 1, &wc, 1);
   return wc;
 }

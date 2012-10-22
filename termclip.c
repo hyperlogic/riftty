@@ -176,7 +176,8 @@ term_paste(wchar *data, uint len)
 
   // Copy data to the paste buffer, converting both Windows-style \r\n and
   // Unix-style \n line endings to \r, because that's what the Enter key sends.
-  for (uint i = 0; i < len; i++) {
+  uint i;
+  for (i = 0; i < len; i++) {
     wchar wc = data[i];
     if (wc != '\n')
       term.paste_buffer[term.paste_len++] = wc;

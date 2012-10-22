@@ -14,22 +14,25 @@
 #include <signal.h>
 #include <sys/ioctl.h>
 #include <sys/wait.h>
-#include <sys/cygwin.h>
+//#include <sys/cygwin.h>
 
-#if CYGWIN_VERSION_API_MINOR >= 93
-#include <pty.h>
+#if 1//CYGWIN_VERSION_API_MINOR >= 93
+//#include <pty.h>
+#include <util.h> // on macos this is where forkpty is.
 #else
 int forkpty(int *, char *, struct termios *, struct winsize *);
 #endif
 
-#include <winbase.h>
+//#include <winbase.h>
 
-#if CYGWIN_VERSION_DLL_MAJOR < 1007
+#if 0//CYGWIN_VERSION_DLL_MAJOR < 1007
 #include <winnls.h>
 #include <wincon.h>
 #include <wingdi.h>
 #include <winuser.h>
 #endif
+
+#define CDEL		(0x9300)
 
 char *home, *cmd;
 
@@ -83,7 +86,8 @@ child_create(char *argv[], struct winsize *winp)
     term_hide_cursor();
   }
   else if (!pid) { // Child process.
-#if CYGWIN_VERSION_DLL_MAJOR < 1007
+
+#if 0//CYGWIN_VERSION_DLL_MAJOR < 1007
     // Some native console programs require a console to be attached to the
     // process, otherwise they pop one up themselves, which is rather annoying.
     // Cygwin's exec function from 1.5 onwards automatically allocates a console
@@ -157,6 +161,7 @@ child_create(char *argv[], struct winsize *winp)
   else { // Parent process.
     fcntl(pty_fd, F_SETFL, O_NONBLOCK);
     
+    /*
     if (cfg.utmp) {
       char *dev = ptsname(pty_fd);
       if (dev) {
@@ -181,6 +186,7 @@ child_create(char *argv[], struct winsize *winp)
         login(&ut);
       }
     }
+    */
   }
 
   win_fd = open("/dev/windows", O_RDONLY);
@@ -384,6 +390,7 @@ child_resize(struct winsize *winp)
 wstring
 child_conv_path(wstring wpath)
 {
+#if 0
   int wlen = wcslen(wpath);
   int len = wlen * cs_cur_max;
   char path[len];
@@ -473,6 +480,8 @@ child_conv_path(wstring wpath)
     free(exp_path);
   
   return win_wpath;
+#endif
+  return 0;
 }
 
 void

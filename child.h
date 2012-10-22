@@ -2,6 +2,7 @@
 #define CHILD_H
 
 #include <sys/termios.h>
+#include "std.h"
 
 extern char *home, *cmd;
 

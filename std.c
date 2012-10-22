@@ -2,6 +2,8 @@
 // Copyright 2010-11 Andy Koppe
 // Licensed under the terms of the GNU General Public License v3 or later.
 
+#include "std.h"
+
 void
 strset(string *sp, string s)
 {
@@ -9,7 +11,7 @@ strset(string *sp, string s)
   *sp = memcpy(renewn((char *)*sp, size), s, size);
 }
 
-#if CYGWIN_VERSION_API_MINOR < 70
+#if 0 //CYGWIN_VERSION_API_MINOR < 70
 
 int
 vasprintf(char **buf, const char *fmt, va_list va)
@@ -52,14 +54,14 @@ asform(const char *fmt, ...)
 }
 
 
-#if CYGWIN_VERSION_API_MINOR < 74
+#if 0 //CYGWIN_VERSION_API_MINOR < 74
 int iswalnum(wint_t wc) { return wc < 0x100 && isalnum(wc); }
 int iswalpha(wint_t wc) { return wc < 0x100 && isalpha(wc); }
 int iswspace(wint_t wc) { return wc < 0x100 && isspace(wc); }
 #endif
 
 
-#if CYGWIN_VERSION_API_MINOR < 91
+#if 0 //CYGWIN_VERSION_API_MINOR < 91
 
 /* Copyright (C) 2002 by  Red Hat, Incorporated. All rights reserved.
  *
@@ -118,7 +120,7 @@ argz_stringify(char *argz, size_t argz_len, int sep)
 }
 #endif
 
-#if CYGWIN_VERSION_API_MINOR < 93
+#if 0 //CYGWIN_VERSION_API_MINOR < 93
 
 /*-
  * Copyright (c) 1990, 1993

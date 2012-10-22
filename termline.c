@@ -10,7 +10,8 @@ newline(int cols, int bce)
 {
   termline *line = new(termline);
   line->chars = newn(termchar, cols);
-  for (int j = 0; j < cols; j++)
+  int j;
+  for (j = 0; j < cols; j++)
     line->chars[j] = (bce ? term.erase_char : basic_erase_char);
   line->cols = line->size = cols;
   line->attr = LATTR_NORM;
@@ -649,7 +650,8 @@ void
 clearline(termline *line)
 {
   line->attr = LATTR_NORM;
-  for (int j = 0; j < line->cols; j++)
+  int j;
+  for (j = 0; j < line->cols; j++)
     line->chars[j] = term.erase_char;
   if (line->size > line->cols) {
     line->size = line->cols;
@@ -687,7 +689,8 @@ resizeline(termline *line, int cols)
     * relative offsets within the cc block.) Also do the same
     * to the head of the cc_free list.
     */
-    for (int i = 0; i < oldcols; i++)
+    int i;
+    for (i = 0; i < oldcols; i++)
       if (line->chars[i].cc_next)
         line->chars[i].cc_next += cols - oldcols;
     if (line->cc_free)
@@ -698,7 +701,7 @@ resizeline(termline *line, int cols)
     * don't have to worry about cc lists here, because we
     * _know_ the erase char doesn't have one.)
     */
-    for (int i = oldcols; i < cols; i++)
+    for (i = oldcols; i < cols; i++)
       line->chars[i] = basic_erase_char;
   }
 }

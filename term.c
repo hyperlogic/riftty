@@ -9,6 +9,9 @@
 #include "charset.h"
 #include "child.h"
 
+#define MIN(a, b)  (((a) < (b)) ? (a) : (b))
+#define MAX(a, b)  (((a) > (b)) ? (a) : (b))
+
 struct term term;
 
 const termchar
@@ -78,10 +81,11 @@ term_schedule_vbell(int already_started, int startpoint)
 int
 term_last_nonempty_line(void)
 {
-  for (int i = term.rows - 1; i >= 0; i--) {
+  int i, j;
+  for (i = term.rows - 1; i >= 0; i--) {
     termline *line = term.lines[i];
     if (line) {
-      for (int j = 0; j < line->cols; j++)
+      for (j = 0; j < line->cols; j++)
         if (!termchars_equal(&line->chars[j], &term.erase_char))
           return i;
     }
@@ -108,7 +112,8 @@ term_reset(void)
   
   term.backspace_sends_bs = cfg.backspace_sends_bs;
   if (term.tabs) {
-    for (int i = 0; i < term.cols; i++)
+    int i;
+    for (i = 0; i < term.cols; i++)
       term.tabs[i] = (i % 8 == 0);
   }
   term.rvideo = 0;
@@ -210,7 +215,7 @@ scrollback_push(uchar *line)
     if (term.sblen < cfg.scrollback_lines) {
       // Expand buffer
       assert(term.sbpos == 0);
-      int new_sblen = min(cfg.scrollback_lines, term.sblen * 3 + 1024);
+      int new_sblen = MIN(cfg.scrollback_lines, term.sblen * 3 + 1024);
       term.scrollback = renewn(term.scrollback, new_sblen);
       term.sbpos = term.sblen;
       term.sblen = new_sblen;
@@ -267,6 +272,7 @@ term_clear_scrollback(void)
 void
 term_resize(int newrows, int newcols)
 {
+  int i, j;
   bool on_alt_screen = term.on_alt_screen;
   term_switch_screen(0, false);
 
@@ -302,11 +308,11 @@ term_resize(int newrows, int newcols)
   // Shrink the screen if newrows < rows
   if (newrows < term.rows) {
     int removed = term.rows - newrows;
-    int destroy = min(removed, term.rows - (curs->y + 1));
+    int destroy = MIN(removed, term.rows - (curs->y + 1));
     int store = removed - destroy;
     
     // Push removed lines into scrollback
-    for (int i = 0; i < store; i++) {
+    for (i = 0; i < store; i++) {
       termline *line = lines[i];
       scrollback_push(compressline(line));
       freeline(line);
@@ -316,12 +322,12 @@ term_resize(int newrows, int newcols)
     memmove(lines, lines + store, newrows * sizeof(termline *));
     
     // Destroy removed lines below the cursor
-    for (int i = term.rows - destroy; i < term.rows; i++)
+    for (i = term.rows - destroy; i < term.rows; i++)
       freeline(lines[i]);
     
     // Adjust cursor position
-    curs->y = max(0, curs->y - store);
-    saved_curs->y = max(0, saved_curs->y - store);
+    curs->y = MAX(0, curs->y - store);
+    saved_curs->y = MAX(0, saved_curs->y - store);
   }
 
   term.lines = lines = renewn(lines, newrows);
@@ -329,18 +335,18 @@ term_resize(int newrows, int newcols)
   // Expand the screen if newrows > rows
   if (newrows > term.rows) {
     int added = newrows - term.rows;
-    int restore = min(added, term.tempsblines);
+    int restore = MIN(added, term.tempsblines);
     int create = added - restore;
     
     // Fill bottom of screen with blank lines
-    for (int i = newrows - create; i < newrows; i++)
+    for (i = newrows - create; i < newrows; i++)
       lines[i] = newline(newcols, false);
     
     // Move existing lines down
     memmove(lines + restore, lines, term.rows * sizeof(termline *));
     
     // Restore lines from scrollback
-    for (int i = restore; i--;) {
+    for (i = restore; i--;) {
       uchar *cline = scrollback_pop();
       termline *line = decompressline(cline, null);
       free(cline);
@@ -354,41 +360,41 @@ term_resize(int newrows, int newcols)
   }
   
   // Resize lines
-  for (int i = 0; i < newrows; i++)
+  for (i = 0; i < newrows; i++)
     resizeline(lines[i], newcols);
   
   // Make a new displayed text buffer.
   if (term.displines) {
-    for (int i = 0; i < term.rows; i++)
+    for (i = 0; i < term.rows; i++)
       freeline(term.displines[i]);
   }
   term.displines = renewn(term.displines, newrows);
-  for (int i = 0; i < newrows; i++) {
+  for (i = 0; i < newrows; i++) {
     termline *line = newline(newcols, false);
     term.displines[i] = line;
-    for (int j = 0; j < newcols; j++)
+    for (j = 0; j < newcols; j++)
       line->chars[j].attr = ATTR_INVALID;
   }
 
   // Make a new alternate screen.
   lines = term.other_lines;
   if (lines) {
-    for (int i = 0; i < term.rows; i++)
+    for (i = 0; i < term.rows; i++)
       freeline(lines[i]);
   }
   term.other_lines = lines = renewn(lines, newrows);
-  for (int i = 0; i < newrows; i++)
+  for (i = 0; i < newrows; i++)
     lines[i] = newline(newcols, true);
 
   // Reset tab stops
   term.tabs = renewn(term.tabs, newcols);
-  for (int i = (term.cols > 0 ? term.cols : 0); i < newcols; i++)
+  for (i = (term.cols > 0 ? term.cols : 0); i < newcols; i++)
     term.tabs[i] = (i % 8 == 0);
 
   // Check that the cursor positions are still valid.
   assert(0 <= curs->y && curs->y < newrows);
   assert(0 <= saved_curs->y && saved_curs->y < newrows);
-  curs->x = min(curs->x, newcols - 1);
+  curs->x = MIN(curs->x, newcols - 1);
 
   curs->wrapnext = false;
 
@@ -476,7 +482,7 @@ term_do_scroll(int topline, int botline, int lines, bool sb)
   
   // Don't try to scroll more than the number of lines in the scroll region.
   int lines_in_region = botline - topline;
-  lines = min(lines, lines_in_region);
+  lines = MIN(lines, lines_in_region);
   
   // Number of lines that are moved up or down as they are.
   // The rest are scrolled out of the region and replaced by empty lines.
@@ -491,7 +497,8 @@ term_do_scroll(int topline, int botline, int lines, bool sb)
   termline *recycled[abs(lines)];
   void recycle(termline **src) {
     memcpy(recycled, src, sizeof recycled);
-    for (int i = 0; i < lines; i++)
+    int i;
+    for (i = 0; i < lines; i++)
       clearline(recycled[i]);
   }
 
@@ -518,12 +525,13 @@ term_do_scroll(int topline, int botline, int lines, bool sb)
     // Only push lines into the scrollback when scrolling off the top of the
     // normal screen and scrollback is actually enabled.
     if (sb && topline == 0 && !term.on_alt_screen && cfg.scrollback_lines) {
-      for (int i = 0; i < lines; i++)
+      int i;
+      for (i = 0; i < lines; i++)
         scrollback_push(compressline(term.lines[i]));
  
       // Shift viewpoint accordingly if user is looking at scrollback
       if (term.disptop < 0)
-        term.disptop = max(term.disptop - lines, -term.sblines);
+        term.disptop = MAX(term.disptop - lines, -term.sblines);
 
       seltop = -term.sblines;
     }
@@ -617,7 +625,8 @@ term_paint(void)
     term.cursor_on && !term.show_other_screen
     ? term.curs.y - term.disptop : -1;
 
-  for (int i = 0; i < term.rows; i++) {
+  int i, j, k;
+  for (i = 0; i < term.rows; i++) {
     pos scrpos;
     scrpos.y = i + term.disptop;
 
@@ -636,7 +645,7 @@ term_paint(void)
     * First loop: work along the line deciding what we want
     * each character cell to look like.
     */
-    for (int j = 0; j < term.cols; j++) {
+    for (j = 0; j < term.cols; j++) {
       termchar *d = chars + j;
       scrpos.x = backward ? backward[j] : j;
       wchar tchar = d->chr;
@@ -724,7 +733,7 @@ term_paint(void)
     */
     int laststart = 0;
     bool dirtyrect = false;
-    for (int j = 0; j < term.cols; j++) {
+    for (j = 0; j < term.cols; j++) {
       if (dispchars[j].attr & DATTR_STARTRUN) {
         laststart = j;
         dirtyrect = false;
@@ -733,7 +742,7 @@ term_paint(void)
       if (dispchars[j].chr != newchars[j].chr ||
           (dispchars[j].attr & ~DATTR_STARTRUN) != newchars[j].attr) {
         if (!dirtyrect) {
-          for (int k = laststart; k < j; k++)
+          for (k = laststart; k < j; k++)
             dispchars[k].attr |= ATTR_INVALID;
           dirtyrect = true;
         }
@@ -746,7 +755,7 @@ term_paint(void)
    /*
     * Finally, loop once more and actually do the drawing.
     */
-    wchar text[max(term.cols, 16)];
+    wchar text[MAX(term.cols, 16)];
     int textlen = 0;
     bool dirty_run = (line->attr != displine->attr);
     bool dirty_line = dirty_run;
@@ -755,7 +764,7 @@ term_paint(void)
 
     displine->attr = line->attr;
 
-    for (int j = 0; j < term.cols; j++) {
+    for (j = 0; j < term.cols; j++) {
       termchar *d = chars + j;
       uint tattr = newchars[j].attr;
       wchar tchar = newchars[j].chr;
@@ -845,12 +854,13 @@ term_invalidate(int left, int top, int right, int bottom)
   if (bottom >= term.rows)
     bottom = term.rows - 1;
 
-  for (int i = top; i <= bottom && i < term.rows; i++) {
+  int i, j;
+  for (i = top; i <= bottom && i < term.rows; i++) {
     if ((term.displines[i]->attr & LATTR_MODE) == LATTR_NORM)
-      for (int j = left; j <= right && j < term.cols; j++)
+      for (j = left; j <= right && j < term.cols; j++)
         term.displines[i]->chars[j].attr |= ATTR_INVALID;
     else
-      for (int j = left / 2; j <= right / 2 + 1 && j < term.cols; j++)
+      for (j = left / 2; j <= right / 2 + 1 && j < term.cols; j++)
         term.displines[i]->chars[j].attr |= ATTR_INVALID;
   }
 }

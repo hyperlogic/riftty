@@ -1,6 +1,8 @@
 #ifndef MINIBIDI_H
 #define MINIBIDI_H
 
+#include "std.h"
+
 typedef struct {
   wchar origwc, wc;
   ushort index;
