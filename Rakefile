@@ -8,6 +8,7 @@ $C_FLAGS = ['-Wall',
             '-DDARWIN',
             "-Iglyphblaster/src",
             "-Iabaci/src",
+            "-Imintty/",
             "-fnested-functions",  # mintty needs this.
            ]
 
@@ -37,16 +38,16 @@ $OBJECTS = ['darwin/SDLMain.o',
             'appconfig.o',
 
             # mintty
-            'config.o',
-            'term.o',
-            'termline.o',
-            'termout.o',
-            'termclip.o',
-            'minibidi.o',
-            'charset.o',
-            'child.o',
-            'std.o',
-            'win.o',
+            'mintty/config.o',
+            'mintty/term.o',
+            'mintty/termline.o',
+            'mintty/termout.o',
+            'mintty/termclip.o',
+            'mintty/minibidi.o',
+            'mintty/charset.o',
+            'mintty/child.o',
+            'mintty/std.o',
+            'mintty/win.o',
 
             # glyphblaster
             'glyphblaster/src/gb_cache.o',
