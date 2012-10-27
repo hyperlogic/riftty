@@ -1,6 +1,7 @@
 #ifndef CONFIG_H
 #define CONFIG_H
 
+#include "std.h"
 
 // Enums for various options.
 
@@ -21,7 +22,7 @@ enum { DEFAULT_COLOUR = UINT_MAX };
 static inline colour
 make_colour(uchar r, uchar g, uchar b) { return r | g << 8 | b << 16; }
 
-bool parse_colour(string, colour *);
+bool parse_colour(mintty_string, colour *);
 
 static inline uchar red(colour c) { return c; }
 static inline uchar green(colour c) { return c >> 8; }
@@ -31,7 +32,7 @@ static inline uchar blue(colour c) { return c >> 16; }
 // Font properties.
 
 typedef struct {
-  string name;
+  mintty_string name;
   int size;
   bool isbold;
 } font_spec;
@@ -52,8 +53,8 @@ typedef struct {
   char bold_as_font;    // 0 = false, 1 = true, -1 = undefined
   bool bold_as_colour;
   bool allow_blinking;
-  string locale;
-  string charset;
+  mintty_string locale;
+  mintty_string charset;
   // Keys
   bool backspace_sends_bs;
   bool ctrl_alt_is_altgr;
@@ -77,25 +78,25 @@ typedef struct {
   char scroll_mod;
   bool pgupdn_scroll;
   // Terminal
-  string term;
-  string answerback;
+  mintty_string term;
+  mintty_string answerback;
   bool bell_sound;
   bool bell_flash;
   bool bell_taskbar;
-  string printer;
+  mintty_string printer;
   bool confirm_exit;
   // Command line
-  string class;
+  mintty_string klass;
   char hold;
-  string icon;
-  string log;
-  string title;
+  mintty_string icon;
+  mintty_string log;
+  mintty_string title;
   bool utmp;
   char window;
   int x, y;
   // "Hidden"
   int col_spacing, row_spacing;
-  string word_chars;
+  mintty_string word_chars;
   colour ime_cursor_colour;
   colour ansi_colours[16];
   // Legacy
@@ -105,10 +106,10 @@ typedef struct {
 extern config cfg, new_cfg;
 
 void init_config(void);
-void load_config(string filename);
-void set_arg_option(string name, string val);
-void parse_arg_option(string);
-void remember_arg(string);
+void load_config(mintty_string filename);
+void set_arg_option(mintty_string name, mintty_string val);
+void parse_arg_option(mintty_string);
+void remember_arg(mintty_string);
 void finish_config(void);
 void copy_config(config *dst, const config *src);
 

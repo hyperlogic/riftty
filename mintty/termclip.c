@@ -26,9 +26,9 @@ clip_addchar(clip_workbuf * b, wchar chr, int attr)
 {
   if (b->bufpos >= b->buflen) {
     b->buflen += 128;
-    b->textbuf = renewn(b->textbuf, b->buflen);
+    b->textbuf = mintty_renewn(b->textbuf, b->buflen);
     b->textptr = b->textbuf + b->bufpos;
-    b->attrbuf = renewn(b->attrbuf, b->buflen);
+    b->attrbuf = mintty_renewn(b->attrbuf, b->buflen);
     b->attrptr = b->attrbuf + b->bufpos;
   }
   *b->textptr++ = chr;
@@ -46,8 +46,8 @@ get_selection(clip_workbuf *buf)
 
   buf->buflen = 5120;
   buf->bufpos = 0;
-  buf->textptr = buf->textbuf = newn(wchar, buf->buflen);
-  buf->attrptr = buf->attrbuf = newn(uint, buf->buflen);
+  buf->textptr = buf->textbuf = mintty_newn(wchar, buf->buflen);
+  buf->attrptr = buf->attrbuf = mintty_newn(uint, buf->buflen);
 
   old_top_x = start.x;    /* needed for rect==1 */
 
@@ -171,7 +171,7 @@ term_paste(wchar *data, uint len)
 {
   term_cancel_paste();
 
-  term.paste_buffer = newn(wchar, len);
+  term.paste_buffer = mintty_newn(wchar, len);
   term.paste_len = term.paste_pos = 0;
 
   // Copy data to the paste buffer, converting both Windows-style \r\n and

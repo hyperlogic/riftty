@@ -13,32 +13,11 @@
 #include <termios.h>
 //#include <sys/cygwin.h>
 
+#define MIN(a, b)  (((a) < (b)) ? (a) : (b))
+#define MAX(a, b)  (((a) > (b)) ? (a) : (b))
+
 config cfg, new_cfg;
 static config file_cfg;
-
-bool
-parse_colour(string s, colour *cp)
-{
-  uint r, g, b;
-  if (sscanf(s, "%u,%u,%u%c", &r, &g, &b, &(char){0}) == 3);
-  else if (sscanf(s, "#%2x%2x%2x%c", &r, &g, &b, &(char){0}) == 3);
-  else if (sscanf(s, "rgb:%2x/%2x/%2x%c", &r, &g, &b, &(char){0}) == 3);
-  else if (sscanf(s, "rgb:%4x/%4x/%4x%c", &r, &g, &b, &(char){0}) == 3)
-    r >>=8, g >>= 8, b >>= 8;
-  else
-    return false;  
-
-  *cp = make_colour(r, g, b);
-  return true;
-}
-
-#if 0
-
-#if CYGWIN_VERSION_API_MINOR >= 222
-static wstring rc_filename = 0;
-#else
-static string rc_filename = 0;
-#endif
 
 const config default_cfg = {
   // Looks
@@ -89,7 +68,7 @@ const config default_cfg = {
   .printer = "",
   .confirm_exit = true,
   // Command line
-  .class = "",
+  .klass = "",
   .hold = HOLD_START,
   .icon = "",
   .log = "",
@@ -130,11 +109,19 @@ typedef enum {
 
 #define offcfg(option) offsetof(config, option)
 
+
+#if 0 //CYGWIN_VERSION_API_MINOR >= 222
+static mintty_wstring rc_filename = 0;
+#else
+static mintty_string rc_filename = 0;
+#endif
+
 static const struct {
-  string name;
+  mintty_string name;
   uchar type;
   uchar offset;
 }
+
 options[] = {
   // Looks
   {"ForegroundColour", OPT_COLOUR, offcfg(fg_colour)},
@@ -192,7 +179,7 @@ options[] = {
   {"ConfirmExit", OPT_BOOL, offcfg(confirm_exit)},
 
   // Command line
-  {"Class", OPT_STRING, offcfg(class)},
+  {"Class", OPT_STRING, offcfg(klass)},
   {"Hold", OPT_HOLD, offcfg(hold)},
   {"Icon", OPT_STRING, offcfg(icon)},
   {"Log", OPT_STRING, offcfg(log)},
@@ -233,7 +220,7 @@ options[] = {
 };
 
 typedef const struct {
-  string name;
+  mintty_string name;
   char val;
 } opt_val;
 
@@ -304,7 +291,7 @@ static opt_val
 };
 
 static int
-find_option(string name)
+find_option(mintty_string name)
 {
   uint i;
   for (i = 0; i < lengthof(options); i++) {
@@ -345,7 +332,7 @@ remember_arg_option(uint i)
 }
 
 void
-remember_arg(string option)
+remember_arg(mintty_string option)
 {
   remember_arg_option(find_option(option));
 }
@@ -368,7 +355,7 @@ check_legacy_options(void (*remember_option)(uint))
 }
 
 bool
-parse_colour(string s, colour *cp)
+parse_colour(mintty_string s, colour *cp)
 {
   uint r, g, b;
   if (sscanf(s, "%u,%u,%u%c", &r, &g, &b, &(char){0}) == 3);
@@ -384,7 +371,7 @@ parse_colour(string s, colour *cp)
 }
 
 static int
-set_option(string name, string val_str)
+set_option(mintty_string name, mintty_string val_str)
 {
   int i = find_option(name);
   if (i < 0)
@@ -394,10 +381,10 @@ set_option(string name, string val_str)
   uint type = options[i].type & ~OPT_LEGACY;
   
   switch (type) {
-    when OPT_STRING:
+    WHEN OPT_STRING:
       strset(val_p, val_str);
       return i;
-    when OPT_INT: {
+    WHEN OPT_INT: {
       char *val_end;
       int val = strtol(val_str, &val_end, 0);
       if (val_end != val_str) {
@@ -405,10 +392,10 @@ set_option(string name, string val_str)
         return i;
       }
     }
-    when OPT_COLOUR:
+    WHEN OPT_COLOUR:
       if (parse_colour(val_str, val_p))
         return i;
-    otherwise: {
+    OTHERWISE: {
       int len = strlen(val_str);
       if (!len)
         break;
@@ -434,7 +421,7 @@ set_option(string name, string val_str)
 }
 
 static int
-parse_option(string option)
+parse_option(mintty_string option)
 {
   const char *eq = strchr(option, '=');
   if (!eq) {
@@ -468,23 +455,23 @@ check_arg_option(int i)
 }
 
 void
-set_arg_option(string name, string val)
+set_arg_option(mintty_string name, mintty_string val)
 {
   check_arg_option(set_option(name, val));
 }
 
 void
-parse_arg_option(string option)
+parse_arg_option(mintty_string option)
 {
   check_arg_option(parse_option(option));
 }
 
 void
-load_config(string filename)
+load_config(mintty_string filename)
 {
   file_opts_num = arg_opts_num = 0;
 
-  delete(rc_filename);
+  mintty_delete(rc_filename);
 #if CYGWIN_VERSION_API_MINOR >= 222
   rc_filename = cygwin_create_path(CCP_POSIX_TO_WIN_W, filename);
 #else
@@ -519,11 +506,11 @@ copy_config(config *dst_p, const config *src_p)
       void *dst_val_p = (void *)dst_p + offset;
       void *src_val_p = (void *)src_p + offset;
       switch (type) {
-        when OPT_STRING:
-          strset(dst_val_p, *(string *)src_val_p);
-        when OPT_INT or OPT_COLOUR:
+        WHEN OPT_STRING:
+          strset(dst_val_p, *(mintty_string *)src_val_p);
+        WHEN OPT_INT OR OPT_COLOUR:
           *(int *)dst_val_p = *(int *)src_val_p;
-        otherwise:
+        OTHERWISE:
           *(char *)dst_val_p = *(char *)src_val_p;
       }
     }
@@ -540,9 +527,9 @@ void
 finish_config(void)
 {
   // Avoid negative sizes.
-  cfg.rows = max(1, cfg.rows);
-  cfg.cols = max(1, cfg.cols);
-  cfg.scrollback_lines = max(0, cfg.scrollback_lines);
+  cfg.rows = MAX(1, cfg.rows);
+  cfg.cols = MAX(1, cfg.cols);
+  cfg.scrollback_lines = MAX(0, cfg.scrollback_lines);
   
   // Ignore charset setting if we haven't got a locale.
   if (!*cfg.locale)
@@ -561,7 +548,7 @@ finish_config(void)
 static void
 save_config(void)
 {
-  string filename;
+  mintty_string filename;
 
 #if CYGWIN_VERSION_API_MINOR >= 222
   filename = cygwin_create_path(CCP_WIN_W_TO_POSIX, rc_filename);
@@ -579,7 +566,7 @@ save_config(void)
       wchar wmsg[len + 1];
       if (cs_mbstowcs(wmsg, msg, lengthof(wmsg)) >= 0)
         win_show_error(wmsg);
-      delete(msg);
+      mintty_delete(msg);
     }
   }
   else {
@@ -592,15 +579,15 @@ save_config(void)
         void *cfg_p = seen_arg_option(i) ? &file_cfg : &cfg;
         void *val_p = cfg_p + options[i].offset;
         switch (type) {
-          when OPT_STRING:
-            fprintf(file, "%s", *(string *)val_p);
-          when OPT_INT:
+          WHEN OPT_STRING:
+            fprintf(file, "%s", *(mintty_string *)val_p);
+          WHEN OPT_INT:
             fprintf(file, "%i", *(int *)val_p);
-          when OPT_COLOUR: {
+          WHEN OPT_COLOUR: {
             colour c = *(colour *)val_p;
             fprintf(file, "%u,%u,%u", red(c), green(c), blue(c));
           }
-          otherwise: {
+          OTHERWISE: {
             int val = *(char *)val_p;
             opt_val *o = opt_vals[type];
             for (; o->name; o++) {
@@ -620,12 +607,13 @@ save_config(void)
   }
 
 #if CYGWIN_VERSION_API_MINOR >= 222
-  delete(filename);
+  mintty_delete(filename);
 #endif
 }
 
-
-static control *cols_box, *rows_box, *locale_box, *charset_box;
+#ifdef MINTTY_WINDOWS_DIALOG_BOXES
+ static control *cols_box, *rows_box, *locale_box, *charset_box;
+#endif
 
 static void
 apply_config(void)
@@ -639,11 +627,11 @@ apply_config(void)
     void *new_val_p = (void *)&new_cfg + offset;
     bool changed;
     switch (type) {
-      when OPT_STRING:
-        changed = strcmp(*(string *)val_p, *(string *)new_val_p);
-      when OPT_INT or OPT_COLOUR:
+      WHEN OPT_STRING:
+        changed = strcmp(*(mintty_string *)val_p, *(mintty_string *)new_val_p);
+      WHEN OPT_INT OR OPT_COLOUR:
         changed = (*(int *)val_p != *(int *)new_val_p);
-      otherwise:
+      OTHERWISE:
         changed = (*(char *)val_p != *(char *)new_val_p);
     }
     if (changed && !seen_arg_option(i))
@@ -654,6 +642,7 @@ apply_config(void)
   save_config();
 }
 
+#ifdef MINTTY_WINDOWS_DIALOG_BOXES
 static void
 ok_handler(control *unused(ctrl), int event)
 {
@@ -716,32 +705,40 @@ printerbox_handler(control *ctrl, int event)
     new_cfg.printer = printer;
   }
 }
+#endif // #ifdef MINTTY_WINDOWS_DIALOG_BOXES
 
 static void
-set_charset(string charset)
+set_charset(mintty_string charset)
 {
   strset(&new_cfg.charset, charset);
+
+#ifdef MINTTY_WINDOWS_DIALOG_BOXES
   dlg_editbox_set(charset_box, charset);
+#else
+  assert(0);
+#endif
+
 }
 
+#ifdef MINTTY_WINDOWS_DIALOG_BOXES
 static void
 locale_handler(control *ctrl, int event)
 {
   string locale = new_cfg.locale;
   switch (event) {
-    when EVENT_REFRESH:
+    WHEN EVENT_REFRESH:
       dlg_listbox_clear(ctrl);
       string l;
       for (int i = 0; (l = locale_menu[i]); i++)
         dlg_listbox_add(ctrl, l);
       dlg_editbox_set(ctrl, locale);
-    when EVENT_UNFOCUS:
+    WHEN EVENT_UNFOCUS:
       dlg_editbox_set(ctrl, locale);
       if (!*locale)
         set_charset("");
-    when EVENT_VALCHANGE:
+    WHEN EVENT_VALCHANGE:
       dlg_editbox_get(ctrl, &new_cfg.locale);
-    when EVENT_SELCHANGE:
+    WHEN EVENT_SELCHANGE:
       dlg_editbox_get(ctrl, &new_cfg.locale);
       if (*locale == '(')
         strset(&locale, "");
@@ -754,34 +751,40 @@ locale_handler(control *ctrl, int event)
       new_cfg.locale = locale;
   }
 }
+#endif // #ifdef MINTTY_WINDOWS_DIALOG_BOXES
 
 static void
 check_locale(void)
 {
   if (!*new_cfg.locale) {
     strset(&new_cfg.locale, "C");
+#ifdef MINTTY_WINDOWS_DIALOG_BOXES
     dlg_editbox_set(locale_box, "C");
+#else
+    assert(0);
+#endif
   }
 }
 
+#ifdef MINTTY_WINDOWS_DIALOG_BOXES
 static void
 charset_handler(control *ctrl, int event)
 {
   string charset = new_cfg.charset;
   switch (event) {
-    when EVENT_REFRESH:
+    WHEN EVENT_REFRESH:
       dlg_listbox_clear(ctrl);
       string cs;
       for (int i = 0; (cs = charset_menu[i]); i++)
         dlg_listbox_add(ctrl, cs);
       dlg_editbox_set(ctrl, charset);
-    when EVENT_UNFOCUS:
+    WHEN EVENT_UNFOCUS:
       dlg_editbox_set(ctrl, charset);
       if (*charset)
         check_locale();
-    when EVENT_VALCHANGE:
+    WHEN EVENT_VALCHANGE:
       dlg_editbox_get(ctrl, &new_cfg.charset);
-    when EVENT_SELCHANGE:
+    WHEN EVENT_SELCHANGE:
       dlg_editbox_get(ctrl, &charset);
       if (*charset == '(')
         strset(&charset, "");
@@ -792,12 +795,14 @@ charset_handler(control *ctrl, int event)
       new_cfg.charset = charset;
   }
 }
+#endif // #ifdef MINTTY_WINDOWS_DIALOG_BOXES
 
+#ifdef MINTTY_WINDOWS_DIALOG_BOXES
 static void
 term_handler(control *ctrl, int event)
 {
   switch (event) {
-    when EVENT_REFRESH:
+    WHEN EVENT_REFRESH:
       dlg_listbox_clear(ctrl);
       dlg_listbox_add(ctrl, "xterm");
       dlg_listbox_add(ctrl, "xterm-256color");
@@ -805,11 +810,13 @@ term_handler(control *ctrl, int event)
       dlg_listbox_add(ctrl, "vt100");
       dlg_listbox_add(ctrl, "vt220");
       dlg_editbox_set(ctrl, new_cfg.term);
-    when EVENT_VALCHANGE or EVENT_SELCHANGE:
+    WHEN EVENT_VALCHANGE or EVENT_SELCHANGE:
       dlg_editbox_get(ctrl, &new_cfg.term);
   }
 }
+#endif // #ifdef MINTTY_WINDOWS_DIALOG_BOXES
 
+#ifdef MINTTY_WINDOWS_DIALOG_BOXES
 void
 setup_config_box(controlbox * b)
 {
@@ -1083,5 +1090,4 @@ setup_config_box(controlbox * b)
     dlg_stdcheckbox_handler, &new_cfg.confirm_exit
   );
 }
-
-#endif // #if 0
+#endif  // #ifdef MINTTY_WINDOWS_DIALOG_BOXES

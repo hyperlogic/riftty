@@ -43,7 +43,7 @@ uint win_get_font_size(void);
 
 void win_check_glyphs(wchar *wcs, uint num);
 
-void win_open(wstring path);
+void win_open(mintty_wstring path);
 void win_copy(const wchar *data, uint *attrs, int len);
 void win_paste(void);
 

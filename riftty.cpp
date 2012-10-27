@@ -18,6 +18,10 @@
 
 #include "render.h"
 
+extern "C" {
+#include "config.h"
+}
+
 Pty* s_pty = 0;
 GB_Context* s_gb = 0;
 GB_Font* s_font = 0;
@@ -158,6 +162,8 @@ int main(int argc, char* argv[])
     }
 
     SetRepeatKeyCallback(OnKeyPress);
+
+    init_config();
 
     int done = 0;
     while (!done)

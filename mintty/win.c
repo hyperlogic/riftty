@@ -42,7 +42,11 @@ static const wchar linedraw_chars[LDRAW_CHAR_NUM][LDRAW_CHAR_TRIES] = {
   {0x00B7, '.'},                   // 0x7E '~' Centered dot
 };
 
-/* void win_reconfig(void); */
+void win_reconfig(void)
+{
+    
+}
+
 /* void win_update(void); */
 void win_update()
 {
@@ -112,7 +116,10 @@ void win_reset_colours(void)
     ;
 }
 
-/* colour win_get_sys_colour(bool fg); */
+colour win_get_sys_colour(bool fg)
+{
+    return 0;
+}
 
 /* void win_invalidate_all(void); */
 void win_invalidate_all(void)
@@ -219,7 +226,7 @@ void win_check_glyphs(wchar *wcs, uint num)
 
 
 /* void win_open(wstring path); */
-void win_open(wstring path)
+void win_open(mintty_wstring path)
 {
     // no clue.
 }
@@ -239,7 +246,10 @@ void win_set_timer(void_fn cb, uint ticks)
 }
 
 /* void win_show_about(void); */
-/* void win_show_error(wchar *); */
+void win_show_error(wchar * error)
+{
+    fprintf(stderr, "win_show_error %p\n", error);
+}
 
 /* bool win_is_glass_available(void); */
 

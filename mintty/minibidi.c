@@ -626,37 +626,37 @@ do_shape(bidi_char * line, bidi_char * to, int count)
     to[i] = line[i];
     tempShape = STYPE(line[i].wc);
     switch (tempShape) {
-      when SR:
+      WHEN SR:
         tempShape = (i + 1 < count ? STYPE(line[i + 1].wc) : SU);
         if ((tempShape == SL) || (tempShape == SD) || (tempShape == SC))
           to[i].wc = SFINAL((SISOLATED(line[i].wc)));
         else
           to[i].wc = SISOLATED(line[i].wc);
-      when SD: {
+      WHEN SD: {
        /* Make Ligatures */
         tempShape = (i + 1 < count ? STYPE(line[i + 1].wc) : SU);
         if (line[i].wc == 0x644) {
           if (i > 0)
             switch (line[i - 1].wc) {
-              when 0x622:
+              WHEN 0x622:
                 ligFlag = 1;
                 if ((tempShape == SL) || (tempShape == SD) || (tempShape == SC))
                   to[i].wc = 0xFEF6;
                 else
                   to[i].wc = 0xFEF5;
-              when 0x623:
+              WHEN 0x623:
                 ligFlag = 1;
                 if ((tempShape == SL) || (tempShape == SD) || (tempShape == SC))
                   to[i].wc = 0xFEF8;
                 else
                   to[i].wc = 0xFEF7;
-              when 0x625:
+              WHEN 0x625:
                 ligFlag = 1;
                 if ((tempShape == SL) || (tempShape == SD) || (tempShape == SC))
                   to[i].wc = 0xFEFA;
                 else
                   to[i].wc = 0xFEF9;
-              when 0x627:
+              WHEN 0x627:
                 ligFlag = 1;
                 if ((tempShape == SL) || (tempShape == SD) || (tempShape == SC))
                   to[i].wc = 0xFEFC;
@@ -873,23 +873,23 @@ do_bidi(bidi_char * line, int count)
   for (i = 0; i < count; i++) {
     tempType = getType(line[i].wc);
     switch (tempType) {
-      when RLE:
+      WHEN RLE:
         currentEmbedding = levels[i] = leastGreaterOdd(currentEmbedding);
         levels[i] = setOverrideBits(levels[i], currentOverride);
         currentOverride = ON;
-      when LRE:
+      WHEN LRE:
         currentEmbedding = levels[i] = leastGreaterEven(currentEmbedding);
         levels[i] = setOverrideBits(levels[i], currentOverride);
         currentOverride = ON;
-      when RLO:
+      WHEN RLO:
         currentEmbedding = levels[i] = leastGreaterOdd(currentEmbedding);
         tempType = currentOverride = R;
         bover = 1;
-      when LRO:
+      WHEN LRO:
         currentEmbedding = levels[i] = leastGreaterEven(currentEmbedding);
         tempType = currentOverride = L;
         bover = 1;
-      when PDF:
+      WHEN PDF:
         if (getPreviousLevel(levels, i) == -1) {
           currentEmbedding = paragraphLevel;
           currentOverride = ON;
@@ -900,12 +900,12 @@ do_bidi(bidi_char * line, int count)
         }
         levels[i] = currentEmbedding;
        /* Whitespace is treated as neutral for now */
-      when WS or S:
+      WHEN WS OR S:
         levels[i] = currentEmbedding;
         tempType = ON;
         if (currentOverride != ON)
           tempType = currentOverride;
-      otherwise:
+      OTHERWISE:
         levels[i] = currentEmbedding;
         if (currentOverride != ON)
           tempType = currentOverride;
@@ -924,7 +924,7 @@ do_bidi(bidi_char * line, int count)
   */
   for (i = 0; i < count; i++) {
     switch (types[i]) {
-      when RLE or LRE or RLO or LRO or PDF:
+      WHEN RLE OR LRE OR RLO OR LRO OR PDF:
         types[i] = BN;
     }
   }
@@ -1027,7 +1027,7 @@ do_bidi(bidi_char * line, int count)
   */
   for (i = 0; i < count; i++) {
     switch (types[i]) {
-      when ES or ET or CS:
+      WHEN ES OR ET OR CS:
         types[i] = ON;
     }
   }

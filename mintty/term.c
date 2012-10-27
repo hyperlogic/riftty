@@ -216,7 +216,7 @@ scrollback_push(uchar *line)
       // Expand buffer
       assert(term.sbpos == 0);
       int new_sblen = MIN(cfg.scrollback_lines, term.sblen * 3 + 1024);
-      term.scrollback = renewn(term.scrollback, new_sblen);
+      term.scrollback = mintty_renewn(term.scrollback, new_sblen);
       term.sbpos = term.sblen;
       term.sblen = new_sblen;
     }
@@ -330,7 +330,7 @@ term_resize(int newrows, int newcols)
     saved_curs->y = MAX(0, saved_curs->y - store);
   }
 
-  term.lines = lines = renewn(lines, newrows);
+  term.lines = lines = mintty_renewn(lines, newrows);
   
   // Expand the screen if newrows > rows
   if (newrows > term.rows) {
@@ -368,7 +368,7 @@ term_resize(int newrows, int newcols)
     for (i = 0; i < term.rows; i++)
       freeline(term.displines[i]);
   }
-  term.displines = renewn(term.displines, newrows);
+  term.displines = mintty_renewn(term.displines, newrows);
   for (i = 0; i < newrows; i++) {
     termline *line = newline(newcols, false);
     term.displines[i] = line;
@@ -382,12 +382,12 @@ term_resize(int newrows, int newcols)
     for (i = 0; i < term.rows; i++)
       freeline(lines[i]);
   }
-  term.other_lines = lines = renewn(lines, newrows);
+  term.other_lines = lines = mintty_renewn(lines, newrows);
   for (i = 0; i < newrows; i++)
     lines[i] = newline(newcols, true);
 
   // Reset tab stops
-  term.tabs = renewn(term.tabs, newcols);
+  term.tabs = mintty_renewn(term.tabs, newcols);
   for (i = (term.cols > 0 ? term.cols : 0); i < newcols; i++)
     term.tabs[i] = (i % 8 == 0);
 

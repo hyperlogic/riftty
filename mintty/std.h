@@ -66,8 +66,8 @@ typedef void (*void_fn)(void);
 typedef uint xchar;     // UTF-32
 typedef wchar_t wchar;  // UTF-16
 
-typedef const char *string;
-typedef const wchar *wstring;
+typedef const char *mintty_string;
+typedef const wchar *mintty_wstring;
 
 #define null ((void *) 0)
 
@@ -77,16 +77,16 @@ typedef const wchar *wstring;
 #define lengthof(array) (sizeof(array) / sizeof(*(array)))
 #define endof(array) (&(array)[lengthof(array)])
 
-#define new(type) ((type *)malloc(sizeof(type)))
-#define newn(type, n) ((type *)calloc((n), sizeof(type)))
-#define renewn(p, n) ((typeof(p)) realloc((p), sizeof(*p) * (n)))
-static inline void delete(const void *p) { free((void *)p); }
+#define mintty_new(type) ((type *)malloc(sizeof(type)))
+#define mintty_newn(type, n) ((type *)calloc((n), sizeof(type)))
+#define mintty_renewn(p, n) ((typeof(p)) realloc((p), sizeof(*p) * (n)))
+static inline void mintty_delete(const void *p) { free((void *)p); }
 
-void strset(string *sp, string s);
+void strset(mintty_string *sp, mintty_string s);
 
-#define when break; case
-#define or : case
-#define otherwise break; default
+#define WHEN break; case
+#define OR : case
+#define OTHERWISE break; default
 
 #ifdef TRACE
 #define trace(xs...) \

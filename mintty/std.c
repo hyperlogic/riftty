@@ -5,10 +5,10 @@
 #include "std.h"
 
 void
-strset(string *sp, string s)
+strset(mintty_string *sp, mintty_string s)
 {
   uint size = strlen(s) + 1;
-  *sp = memcpy(renewn((char *)*sp, size), s, size);
+  *sp = memcpy(mintty_renewn((char *)*sp, size), s, size);
 }
 
 #if 0 //CYGWIN_VERSION_API_MINOR < 70

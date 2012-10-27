@@ -17,11 +17,11 @@
 
 static cs_mode mode = CSM_DEFAULT;
 
-static string default_locale;  // Used unless UTF-8 or ACP mode is on.
+static mintty_string default_locale;  // Used unless UTF-8 or ACP mode is on.
 
-static string term_locale;     // Locale set via terminal control sequences.
-static string config_locale;   // Locale configured in the options.
-static string env_locale;      // Locale determined by the environment.
+static mintty_string term_locale;     // Locale set via terminal control sequences.
+static mintty_string config_locale;   // Locale configured in the options.
+static mintty_string env_locale;      // Locale determined by the environment.
 #if HAS_LOCALES
 static bool valid_default_locale, use_locale;
 bool cs_ambig_wide;
@@ -36,7 +36,7 @@ int cs_cur_max;
 
 static const struct {
   ushort cp;
-  string name;
+  mintty_string name;
 }
 
 #ifndef CP_UTF8
@@ -88,7 +88,7 @@ cs_names[] = {
 
 static const struct {
   ushort cp;
-  string desc;
+  mintty_string desc;
 }
 cs_descs[] = {
   { CP_UTF8, "Unicode"},
@@ -124,17 +124,17 @@ cs_descs[] = {
   {     949, "Korean"},
 };
 
-string locale_menu[8];
-string charset_menu[lengthof(cs_descs) + 4];
+mintty_string locale_menu[8];
+mintty_string charset_menu[lengthof(cs_descs) + 4];
 
 static void
-strtoupper(char *dst, string src)
+strtoupper(char *dst, mintty_string src)
 {
   while ((*dst++ = toupper((uchar)*src++)));
 }
 
 // Return the charset name for a codepage number.
-static string
+static mintty_string
 cs_name(uint cp)
 {
   uint i;
@@ -165,7 +165,7 @@ valid_codepage(uint cp)
 
 // Find the codepage number for a charset name.
 static uint
-cs_codepage(string name)
+cs_codepage(mintty_string name)
 {
 #if 0
   uint cp = CP_ACP;
@@ -240,7 +240,7 @@ init_charset_menu(void)
 {
   charset_menu[0] = "(Default)";
   uint i;
-  string *p = charset_menu + 1;
+  mintty_string *p = charset_menu + 1;
   for (i = 0; i < lengthof(cs_descs); i++) {
     uint cp = cs_descs[i].cp;
     if (valid_codepage(cp) || (28591 <= cp && cp <= 28606))
@@ -310,18 +310,18 @@ cs_set_mode(cs_mode new_mode)
 static void
 update_locale(void)
 {
-  delete(default_locale);
+  mintty_delete(default_locale);
 
-  string locale = term_locale ?: config_locale ?: env_locale;
-  string dot = strchr(locale, '.');
-  string charset = dot ? dot + 1 : locale;
+  mintty_string locale = term_locale ?: config_locale ?: env_locale;
+  mintty_string dot = strchr(locale, '.');
+  mintty_string charset = dot ? dot + 1 : locale;
 
 #if HAS_LOCALES
-  string set_locale = setlocale(LC_CTYPE, locale);
+  mintty_string set_locale = setlocale(LC_CTYPE, locale);
   if (!set_locale) {
     locale = asform("C.%s", charset);
     set_locale = setlocale(LC_CTYPE, locale);
-    delete(locale);
+    mintty_delete(locale);
   }
 
   valid_default_locale = set_locale;
@@ -342,16 +342,16 @@ update_locale(void)
   update_mode();
 }
 
-string
+mintty_string
 cs_get_locale(void)
 {
   return default_locale;
 }
 
 void
-cs_set_locale(string locale)
+cs_set_locale(mintty_string locale)
 {
-  delete(term_locale);
+  mintty_delete(term_locale);
   term_locale = *locale ? strdup(locale) : 0;
   update_locale();
 }
@@ -359,7 +359,7 @@ cs_set_locale(string locale)
 void
 cs_reconfig(void)
 {
-  delete(config_locale);
+  mintty_delete(config_locale);
   if (*cfg.locale) {
     config_locale =
       asform("%s%s%s", cfg.locale, *cfg.charset ? "." : "", cfg.charset);
@@ -368,9 +368,9 @@ cs_reconfig(void)
         wcwidth(0x3B1) == 2 && !font_ambig_wide) {
       // Attach "@cjknarrow" to locale if using an ambig-narrow font
       // with an ambig-wide locale setting
-      string l = config_locale;
+      mintty_string l = config_locale;
       config_locale = asform("%s@cjknarrow", l);
-      delete(l);
+      mintty_delete(l);
     }
 #endif
   }
@@ -380,10 +380,10 @@ cs_reconfig(void)
   update_locale();
 }
 
-static string
-getlocenv(string name)
+static mintty_string
+getlocenv(mintty_string name)
 {
-  string val = getenv(name);
+  mintty_string val = getenv(name);
   return val && *val ? val : 0;
 }
   
@@ -404,7 +404,7 @@ cs_init(void)
   cs_reconfig();
 }
 
-string
+mintty_string
 cs_lang(void)
 {
   return config_locale;

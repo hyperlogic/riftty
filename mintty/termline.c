@@ -8,8 +8,8 @@
 termline *
 newline(int cols, int bce)
 {
-  termline *line = new(termline);
-  line->chars = newn(termchar, cols);
+  termline *line = mintty_new(termline);
+  line->chars = mintty_newn(termchar, cols);
   int j;
   for (j = 0; j < cols; j++)
     line->chars[j] = (bce ? term.erase_char : basic_erase_char);
@@ -48,7 +48,7 @@ add(struct buf *b, uchar c)
   assert(b);
   if (b->len >= b->size) {
     b->size = (b->len * 3 / 2) + 512;
-    b->data = renewn(b->data, b->size);
+    b->data = mintty_renewn(b->data, b->size);
   }
   b->data[b->len++] = c;
 }
@@ -73,7 +73,7 @@ add_cc(termline *line, int col, wchar chr)
   if (!line->cc_free) {
     int n = line->size;
     line->size += 16 + (line->size - line->cols) / 2;
-    line->chars = renewn(line->chars, line->size);
+    line->chars = mintty_renewn(line->chars, line->size);
     line->cc_free = n;
     do
       line->chars[n].cc_next = 1;
@@ -540,7 +540,7 @@ compressline(termline *line)
  /*
   * Trim the allocated memory so we don't waste any, and return.
   */
-  return renewn(b->data, b->len);
+  return mintty_renewn(b->data, b->len);
 }
 
 static void
@@ -601,8 +601,8 @@ decompressline(uchar *data, int *bytes_used)
  /*
   * Now create the output termline.
   */
-  line = new(termline);
-  line->chars = newn(termchar, ncols);
+  line = mintty_new(termline);
+  line->chars = mintty_newn(termchar, ncols);
   line->cols = line->size = ncols;
   line->temporary = true;
   line->cc_free = 0;
@@ -655,7 +655,7 @@ clearline(termline *line)
     line->chars[j] = term.erase_char;
   if (line->size > line->cols) {
     line->size = line->cols;
-    line->chars = renewn(line->chars, line->size);
+    line->chars = mintty_renewn(line->chars, line->size);
     line->cc_free = 0;
   }
 }
@@ -674,7 +674,7 @@ resizeline(termline *line, int cols)
     * Leave the same amount of cc space as there was to begin with.
     */
     line->size += cols - oldcols;
-    line->chars = renewn(line->chars, line->size);
+    line->chars = mintty_renewn(line->chars, line->size);
     line->cols = cols;
 
    /*
@@ -792,8 +792,8 @@ term_bidi_cache_store(int line, termchar *lbefore, termchar *lafter,
   if (!term.pre_bidi_cache || term.bidi_cache_size <= line) {
     int j = term.bidi_cache_size;
     term.bidi_cache_size = line + 1;
-    term.pre_bidi_cache = renewn(term.pre_bidi_cache, term.bidi_cache_size);
-    term.post_bidi_cache = renewn(term.post_bidi_cache, term.bidi_cache_size);
+    term.pre_bidi_cache = mintty_renewn(term.pre_bidi_cache, term.bidi_cache_size);
+    term.post_bidi_cache = mintty_renewn(term.post_bidi_cache, term.bidi_cache_size);
     while (j < term.bidi_cache_size) {
       term.pre_bidi_cache[j].chars = term.post_bidi_cache[j].chars = null;
       term.pre_bidi_cache[j].width = term.post_bidi_cache[j].width = -1;
@@ -809,11 +809,11 @@ term_bidi_cache_store(int line, termchar *lbefore, termchar *lafter,
   free(term.post_bidi_cache[line].backward);
 
   term.pre_bidi_cache[line].width = width;
-  term.pre_bidi_cache[line].chars = newn(termchar, size);
+  term.pre_bidi_cache[line].chars = mintty_newn(termchar, size);
   term.post_bidi_cache[line].width = width;
-  term.post_bidi_cache[line].chars = newn(termchar, size);
-  term.post_bidi_cache[line].forward = newn(int, width);
-  term.post_bidi_cache[line].backward = newn(int, width);
+  term.post_bidi_cache[line].chars = mintty_newn(termchar, size);
+  term.post_bidi_cache[line].forward = mintty_newn(int, width);
+  term.post_bidi_cache[line].backward = mintty_newn(int, width);
 
   memcpy(term.pre_bidi_cache[line].chars, lbefore, size * sizeof(termchar));
   memcpy(term.post_bidi_cache[line].chars, lafter, size * sizeof(termchar));
@@ -850,8 +850,8 @@ term_bidi_line(termline *line, int scr_y)
 
     if (term.wcFromTo_size < term.cols) {
       term.wcFromTo_size = term.cols;
-      term.wcFrom = renewn(term.wcFrom, term.wcFromTo_size);
-      term.wcTo = renewn(term.wcTo, term.wcFromTo_size);
+      term.wcFrom = mintty_renewn(term.wcFrom, term.wcFromTo_size);
+      term.wcTo = mintty_renewn(term.wcTo, term.wcFromTo_size);
     }
 
     for (it = 0; it < term.cols; it++) {
@@ -865,7 +865,7 @@ term_bidi_line(termline *line, int scr_y)
 
     if (term.ltemp_size < line->size) {
       term.ltemp_size = line->size;
-      term.ltemp = renewn(term.ltemp, term.ltemp_size);
+      term.ltemp = mintty_renewn(term.ltemp, term.ltemp_size);
     }
 
     memcpy(term.ltemp, line->chars, line->size * sizeof(termchar));
