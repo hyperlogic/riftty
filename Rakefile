@@ -1,7 +1,6 @@
 # build quadapult sdl version
 
 require 'rake/clean'
-require 'tempfile'
 
 # used by tags task
 class Dir
@@ -149,23 +148,23 @@ task :default => [:opt]
 
 desc "ctags for emacs"
 task :tags do
-  PATHS = ['.']
+  sh "rm TAGS"
+
+  PATHS = [File.expand_path('.')]
   # ends in .h, .cpp or .c (case insensitive match)
   SRC_PATTERN = /\.[hH]\z|\.[cC][pP][pP]\z|\.[cC]\z/
-  temp_file = Tempfile.new('srcfiles.txt')
+  src_files = []
 
   # fill temp_file with all the source files in PATHS
   PATHS.each do |path|
     Dir.for_each_rec(path) do |f|
       if SRC_PATTERN =~ f
-        temp_file.puts f
+        src_files << f
       end
     end
   end
 
-  sh "etags --language=c++ - < #{temp_file.path}"
-  temp_file.close
-  temp_file.unlink
+  src_files.each {|f| sh "etags -a #{f}"}
 end
 
 CLEAN.include $DEPS, $OBJECTS
