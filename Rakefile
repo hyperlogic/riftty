@@ -1,6 +1,24 @@
 # build quadapult sdl version
 
 require 'rake/clean'
+require 'tempfile'
+
+# used by tags task
+class Dir
+  # for each file in path, including sub-directories,
+  # yield the full path of the filename to a block
+  def Dir.for_each_rec path, &block
+    if File.directory?(path)
+      foreach path do |file|
+        if file[0,1] != '.'
+          for_each_rec File.expand_path(file, path), &block
+        end
+      end
+    else
+      yield path
+    end
+  end
+end
 
 $C_FLAGS = ['-Wall',
             `sdl-config --cflags`.chomp,
@@ -128,6 +146,27 @@ task :debug => [:add_debug_flags, $EXE]
 
 desc "Optimized Build, By Default"
 task :default => [:opt]
+
+desc "ctags for emacs"
+task :tags do
+  PATHS = ['.']
+  # ends in .h, .cpp or .c (case insensitive match)
+  SRC_PATTERN = /\.[hH]\z|\.[cC][pP][pP]\z|\.[cC]\z/
+  temp_file = Tempfile.new('srcfiles.txt')
+
+  # fill temp_file with all the source files in PATHS
+  PATHS.each do |path|
+    Dir.for_each_rec(path) do |f|
+      if SRC_PATTERN =~ f
+        temp_file.puts f
+      end
+    end
+  end
+
+  sh "etags --language=c++ - < #{temp_file.path}"
+  temp_file.close
+  temp_file.unlink
+end
 
 CLEAN.include $DEPS, $OBJECTS
 CLOBBER.include $EXE
