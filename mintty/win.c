@@ -62,7 +62,7 @@ void win_schedule_update(void)
 /* void win_text(int x, int y, wchar *text, int len, uint attr, int lattr); */
 void win_text(int x, int y, wchar *text, int len, uint attr, int lattr)
 {
-
+    fprintf(stderr, "mintty: win_text() x = %d, y = %d, text = %p, len = %d, attr = %u, lattr = %d\n", x, y, text, len, attr, lattr);
 }
 
 /* void win_update_mouse(void); */

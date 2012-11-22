@@ -38,7 +38,7 @@ char *home, *cmd;
 
 static pid_t pid;
 static bool killed;
-static int pty_fd = -1, log_fd = -1, win_fd;
+static int pty_fd = -1, log_fd = -1, win_fd = -1;
 
 static void
 error(char *action)
@@ -67,11 +67,16 @@ child_create(char *argv[], struct winsize *winp)
 
   // xterm and urxvt ignore SIGHUP, so let's do the same.
   signal(SIGHUP, SIG_IGN);
-  
+
   signal(SIGINT, sigexit);
   signal(SIGTERM, sigexit);
   signal(SIGQUIT, sigexit);
-  
+
+  /* Save real stderr so we can fprintf to it instead of pty for errors. */
+  int STDERR = dup(STDERR_FILENO);
+  FILE *parent_stderr = fdopen(STDERR, "w");
+  setvbuf(parent_stderr, NULL, _IONBF, 0);
+
   // Create the child process and pseudo terminal.
   pid = forkpty(&pty_fd, 0, 0, winp);
   if (pid < 0) {
@@ -109,8 +114,9 @@ child_create(char *argv[], struct winsize *winp)
           (void *)GetProcAddress(kernel, "GetConsoleWindow");
         ShowWindowAsync(pGetConsoleWindow(), SW_HIDE);
       }
-#endif
+#endif // #if 0
 
+/*
     // Reset signals
     signal(SIGHUP, SIG_DFL);
     signal(SIGINT, SIG_DFL);
@@ -122,9 +128,9 @@ child_create(char *argv[], struct winsize *winp)
     signal(SIGTSTP, SIG_IGN);
     signal(SIGTTIN, SIG_IGN);
     signal(SIGTTOU, SIG_IGN);
-
+*/
     setenv("TERM", cfg.term, true);
-    
+
     if (lang) {
       unsetenv("LC_ALL");
       unsetenv("LC_COLLATE");
@@ -136,6 +142,7 @@ child_create(char *argv[], struct winsize *winp)
       setenv("LANG", lang, true);
     }
 
+/*
     // Terminal line settings
     struct termios attr;
     tcgetattr(0, &attr);
@@ -143,12 +150,15 @@ child_create(char *argv[], struct winsize *winp)
     attr.c_iflag |= IXANY | IMAXBEL;
     attr.c_lflag |= ECHOE | ECHOK | ECHOCTL | ECHOKE;
     tcsetattr(0, TCSANOW, &attr);
-    
+*/
+
+    fprintf(parent_stderr, "mintty: before execvp in child\n");
+
     // Invoke command
     execvp(cmd, argv);
 
     // If we get here, exec failed.
-    fprintf(stderr, "%s: %s\r\n", cmd, strerror(errno));
+    fprintf(parent_stderr, "%s: %s\r\n", cmd, strerror(errno));
 
 #if CYGWIN_VERSION_DLL_MAJOR < 1005
     // Before Cygwin 1.5, the message above doesn't appear if we exit
@@ -160,7 +170,9 @@ child_create(char *argv[], struct winsize *winp)
   }
   else { // Parent process.
     fcntl(pty_fd, F_SETFL, O_NONBLOCK);
-    
+
+    // wait a bit for child to login.
+    sleep(10);
     /*
     if (cfg.utmp) {
       char *dev = ptsname(pty_fd);
@@ -189,7 +201,7 @@ child_create(char *argv[], struct winsize *winp)
     */
   }
 
-  win_fd = open("/dev/windows", O_RDONLY);
+  // win_fd = open("/dev/windows", O_RDONLY);
 
   // Open log file if any
   if (*cfg.log) {
@@ -213,14 +225,14 @@ child_proc(void)
     struct timeval timeout = {0, 100000}, *timeout_p = 0;
     fd_set fds;
     FD_ZERO(&fds);
-    FD_SET(win_fd, &fds);  
+    //FD_SET(win_fd, &fds);
     if (pty_fd >= 0)
       FD_SET(pty_fd, &fds);
     else if (pid) {
       int status;
       if (waitpid(pid, &status, WNOHANG) == pid) {
         pid = 0;
-        
+
         // Decide whether we want to exit now or later
         if (killed || cfg.hold == HOLD_NEVER)
           exit(0);
@@ -235,19 +247,19 @@ child_proc(void)
           }
           else {
             const int error_sigs =
-              1<<SIGILL | 1<<SIGTRAP | 1<<SIGABRT | 1<<SIGFPE | 
+              1<<SIGILL | 1<<SIGTRAP | 1<<SIGABRT | 1<<SIGFPE |
               1<<SIGBUS | 1<<SIGSEGV | 1<<SIGPIPE | 1<<SIGSYS;
             if (!(error_sigs & 1<<WTERMSIG(status)))
               exit(0);
           }
         }
-      
+
         int l = 0;
-        char *s = 0; 
+        char *s = 0;
         if (WIFEXITED(status)) {
           int code = WEXITSTATUS(status);
           if (code && cfg.hold != HOLD_START)
-            l = asprintf(&s, "%s: Exit %i", cmd, code); 
+            l = asprintf(&s, "%s: Exit %i", cmd, code);
         }
         else if (WIFSIGNALED(status))
           l = asprintf(&s, "%s: %s", cmd, strsignal(WTERMSIG(status)));
@@ -258,26 +270,18 @@ child_proc(void)
       else // Pty gone, but process still there: keep checking
         timeout_p = &timeout;
     }
-    
-    if (select(win_fd + 1, &fds, 0, 0, timeout_p) > 0) {
+
+    //if (select(win_fd + 1, &fds, 0, 0, timeout_p) > 0) {
       if (pty_fd >= 0 && FD_ISSET(pty_fd, &fds)) {
-#if CYGWIN_VERSION_DLL_MAJOR >= 1005
+
+        fprintf(stderr, "before read!\n");
         static char buf[4096];
         int len = read(pty_fd, buf, sizeof buf);
-#else
-        // Pty devices on old Cygwin version deliver only 4 bytes at a time,
-        // so call read() repeatedly until we have a worthwhile haul.
-        static char buf[512];
-        uint len = 0;
-        do {
-          int ret = read(pty_fd, buf + len, sizeof buf - len);
-          if (ret > 0)
-            len += ret;
-          else
-            break;
-        } while (len < sizeof buf);
-#endif
+        if (len == -1) {
+            fprintf(stderr, "after read, pty_ft = %d, error = %s\n", pty_fd, strerror(errno));
+        }
         if (len > 0) {
+          fprintf(stderr, "after read, len = %d bytes\n", len);
           term_write(buf, len);
           if (log_fd >= 0)
             write(log_fd, buf, len);
@@ -287,17 +291,20 @@ child_proc(void)
           term_hide_cursor();
         }
       }
+/*
       if (FD_ISSET(win_fd, &fds))
         return;
-    }
+*/
+//    }
+
   }
 }
 
 void
 child_kill(bool point_blank)
-{ 
+{
   if (!pid ||
-      kill(-pid, point_blank ? SIGKILL : SIGHUP) < 0 || 
+      kill(-pid, point_blank ? SIGKILL : SIGHUP) < 0 ||
       point_blank)
     exit(0);
   killed = true;
@@ -342,7 +349,7 @@ child_is_parent(void)
 
 void
 child_write(const char *buf, uint len)
-{ 
+{
   if (pty_fd >= 0)
     write(pty_fd, buf, len);
 }
@@ -382,7 +389,7 @@ child_sendw(const wchar *ws, uint wlen)
 
 void
 child_resize(struct winsize *winp)
-{ 
+{
   if (pty_fd >= 0)
     ioctl(pty_fd, TIOCSWINSZ, winp);
 }
@@ -396,7 +403,7 @@ child_conv_path(mintty_wstring wpath)
   char path[len];
   len = cs_wcntombn(path, wpath, len, wlen);
   path[len] = 0;
-  
+
   char *exp_path;  // expanded path
   if (*path == '~') {
     // Tilde expansion
@@ -425,19 +432,19 @@ child_conv_path(mintty_wstring wpath)
 #if CYGWIN_VERSION_DLL_MAJOR >= 1005
     // Handle relative paths. Finding the foreground process working directory
     // requires the /proc filesystem, which isn't available before Cygwin 1.5.
-    
+
     // Find pty's foreground process, if any. Fall back to child process.
     int fg_pid = (pty_fd >= 0) ? tcgetpgrp(pty_fd) : 0;
     if (fg_pid <= 0)
       fg_pid = pid;
-    
+
     char *cwd = 0;
     if (fg_pid > 0) {
       char proc_cwd[32];
       sprintf(proc_cwd, "/proc/%u/cwd", fg_pid);
       cwd = realpath(proc_cwd, 0);
     }
-    
+
     exp_path = asform("%s/%s", cwd ?: home, path);
     free(cwd);
 #else
@@ -447,14 +454,14 @@ child_conv_path(mintty_wstring wpath)
   }
   else
     exp_path = path;
-  
+
 #if CYGWIN_VERSION_DLL_MAJOR >= 1007
 #if CYGWIN_VERSION_API_MINOR >= 222
   // CW_INT_SETLOCALE was introduced in API 0.222
   cygwin_internal(CW_INT_SETLOCALE);
 #endif
   wchar *win_wpath = cygwin_create_path(CCP_POSIX_TO_WIN_W, exp_path);
-  
+
   // Drop long path prefix if possible,
   // because some programs have trouble with them.
   if (win_wpath && wcslen(win_wpath) < MAX_PATH) {
@@ -475,10 +482,10 @@ child_conv_path(mintty_wstring wpath)
   wchar *win_wpath = newn(wchar, MAX_PATH);
   MultiByteToWideChar(0, 0, win_path, -1, win_wpath, MAX_PATH);
 #endif
-  
+
   if (exp_path != path)
     free(exp_path);
-  
+
   return win_wpath;
 #endif
   return 0;

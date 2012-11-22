@@ -20,6 +20,9 @@
 
 extern "C" {
 #include "config.h"
+#include "charset.h"
+#include "term.h"
+#include "child.h"
 }
 
 Pty* s_pty = 0;
@@ -156,14 +159,35 @@ int main(int argc, char* argv[])
 
     GB_ContextSetTextRenderFunc(s_gb, TextRenderFunc);
 
+    /*
     if (!Pty_Make(&s_pty)) {
         fprintf(stderr, "Pty_Make failed");
         exit(1);
     }
+    */
 
     SetRepeatKeyCallback(OnKeyPress);
 
     init_config();
+    cs_init();  // TODO: code pages do not want
+    // TODO: load config from /etc/riffty or ~/.rifttyrc
+    finish_config();
+    // TODO: get SHELL from env
+
+    cs_reconfig(); // TODO: do not want
+
+    term_reset();
+    term_resize(cfg.rows, cfg.cols);
+
+    int font_width = 10;
+    int font_height = 10;
+    int term_width = font_width * cfg.cols;
+    int term_height = font_height * cfg.rows;
+
+    char* login_argv[] = {"login", "-pfl", "ajt", NULL};
+    child_create(login_argv, &(struct winsize){cfg.rows, cfg.cols, term_width, term_height});
+    child_proc();
+    fprintf(stderr, "should never get here!\n");
 
     int done = 0;
     while (!done)
@@ -222,6 +246,8 @@ int main(int argc, char* argv[])
             Render();
         }
     }
+
+    child_kill(true);
 
     if (s_text) {
         err = GB_TextRelease(s_gb, s_text);

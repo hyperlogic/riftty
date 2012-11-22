@@ -143,7 +143,7 @@ typedef struct {
 
 } termchar;
 
-const termchar basic_erase_char;
+extern const termchar basic_erase_char;
 
 typedef struct {
   ushort attr;
