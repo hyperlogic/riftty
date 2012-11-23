@@ -11,4 +11,4 @@ Here are some of the changes:
     * renamed some typedefs / macros to not confliced with existing C++ types. (string)
   * commented or ifdef'ed out windows dependencies.
   * reformatted code from 2 space indents to 4.
-  * commented out of ifdefed out cygwin dependencies.
+  * commented out, deleted or ifdefed out some cygwin dependencies.
