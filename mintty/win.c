@@ -1,5 +1,7 @@
 #include "win.h"
-
+#include "gb_context.h"
+#include "gb_font.h"
+#include "gb_text.h"
 
 enum {LDRAW_CHAR_NUM = 31, LDRAW_CHAR_TRIES = 4};
 
@@ -9,7 +11,7 @@ wchar win_linedraw_chars[LDRAW_CHAR_NUM];
 bool font_ambig_wide;
 
 static const wchar linedraw_chars[LDRAW_CHAR_NUM][LDRAW_CHAR_TRIES] = {
-  {0x25C6, 0x2666, '*'},           // 0x60 '`' Diamond 
+  {0x25C6, 0x2666, '*'},           // 0x60 '`' Diamond
   {0x2592, '#'},                   // 0x61 'a' Checkerboard (error)
   {0x2409, 0x2192, 0x01AD, 't'},   // 0x62 'b' Horizontal tab
   {0x240C, 0x21A1, 0x0192, 'f'},   // 0x63 'c' Form feed
@@ -42,20 +44,79 @@ static const wchar linedraw_chars[LDRAW_CHAR_NUM][LDRAW_CHAR_TRIES] = {
   {0x00B7, '.'},                   // 0x7E '~' Centered dot
 };
 
+struct WIN_Context s_context;
+char s_temp[4096];
+
+void win_init(void)
+{
+    memset(&s_context, 0, sizeof(struct WIN_Context));
+
+    // create the glyphblaster context
+    GB_ERROR err;
+    err = GB_ContextMake(128, 3, GB_TEXTURE_FORMAT_ALPHA, &s_context.gb);
+    if (err != GB_ERROR_NONE) {
+        fprintf(stderr, "GB_Init Error %d\n", err);
+        exit(1);
+    }
+
+    // create a monospace font
+    err = GB_FontMake(s_context.gb, "font/SourceCodePro-Bold.ttf", 14, GB_RENDER_NORMAL, GB_HINT_DEFAULT, &s_context.font);
+    if (err != GB_ERROR_NONE) {
+        fprintf(stderr, "GB_MakeFont Error %s\n", GB_ErrorToString(err));
+        exit(1);
+    }
+
+    // start off with with 4 text ptrs
+    s_context.text = malloc(sizeof(struct GB_Text*) * 4);
+    s_context.textCapacity = 4;
+    s_context.textCount = 0;
+}
+
+static void win_clear_text()
+{
+    // delete all texts
+    int i;
+    for (i = 0; i < s_context.textCount; i++) {
+        GB_TextRelease(s_context.gb, s_context.text[i]);
+        s_context.text[i] = NULL;
+    }
+    s_context.textCount = 0;
+}
+
+void win_shutdown(void)
+{
+    win_clear_text();
+    free(s_context.text);
+
+    GB_ERROR err = GB_FontRelease(s_context.gb, s_context.font);
+    if (err != GB_ERROR_NONE) {
+        fprintf(stderr, "GB_ReleaseFont Error %s\n", GB_ErrorToString(err));
+        exit(1);
+    }
+
+    err = GB_ContextRelease(s_context.gb);
+    if (err != GB_ERROR_NONE) {
+        fprintf(stderr, "GB_Shutdown Error %s\n", GB_ErrorToString(err));
+        exit(1);
+    }
+}
+
 void win_reconfig(void)
 {
-    
+    fprintf(stderr, "mintty: win_reconfig\n");
+    fprintf(stderr, "    rows = %d, cols = %d\n", cfg.rows, cfg.cols);
 }
 
 /* void win_update(void); */
 void win_update()
 {
-    ;
+    fprintf(stderr, "mintty: win_update()\n");
 }
 
 /* void win_schedule_update(void); */
 void win_schedule_update(void)
 {
+    win_clear_text();
     term_paint();
 }
 
@@ -63,7 +124,266 @@ void win_schedule_update(void)
 void win_text(int x, int y, wchar *text, int len, uint attr, int lattr)
 {
     fprintf(stderr, "mintty: win_text() x = %d, y = %d, text = %p, len = %d, attr = %u, lattr = %d\n", x, y, text, len, attr, lattr);
+
+    // realloc text ptrs, if necessary
+    if (s_context.textCount == s_context.textCapacity)
+    {
+        s_context.textCapacity *= s_context.textCapacity;
+        s_context.text = realloc(s_context.text, s_context.textCapacity * sizeof(struct GB_Text*));
+    }
+
+    // HACK: because GB_Text does not have a pen position.
+    // we append the string with the appropriate amount of newlines and spaces.
+    // use s_temp to build string
+
+    // fill up s_indent string prefix string.
+    int ii = 0;
+    int i;
+    for (i = 0; i < y; i++)
+        s_temp[ii++] = '\n';
+    for (i = 0; i < x; i++)
+        s_temp[ii++] = ' ';
+
+    assert(ii < 2048);  // s_temp overflow!
+    assert(ii + len < 2048);  // s_temp overflow
+
+    // HACK: convert each wchar to a char. fuck unicode.
+    for (i = 0; i < len; i++)
+        s_temp[ii + i] = (char)text[i];
+    s_temp[ii + len] = 0;
+
+    // allocate a new text object!
+    uint32_t origin[2] = {0, 0};
+    uint32_t size[2] = {1000, 1000};
+    struct GB_Text* gb_text = NULL;
+    GB_ERROR err = GB_TextMake(s_context.gb, (uint8_t*)s_temp, s_context.font, 0xffffffff, origin, size,
+                               GB_HORIZONTAL_ALIGN_LEFT, GB_VERTICAL_ALIGN_TOP, &gb_text);
+    if (err != GB_ERROR_NONE) {
+        fprintf(stderr, "GB_TextMake Error %s\n", GB_ErrorToString(err));
+        exit(1);
+    }
+
+    s_context.text[s_context.textCount++] = gb_text;
 }
+
+// original win_text code from mintty
+#if 0
+/*
+ * Draw a line of text in the window, at given character
+ * coordinates, in given attributes.
+ *
+ * We are allowed to fiddle with the contents of `text'.
+ */
+void
+win_text(int x, int y, wchar *text, int len, uint attr, int lattr)
+{
+    lattr &= LATTR_MODE;
+    int char_width = font_width * (1 + (lattr != LATTR_NORM));
+
+    /* Convert to window coordinates */
+    x = x * char_width + PADDING;
+    y = y * font_height + PADDING;
+
+    if (attr & ATTR_WIDE)
+        char_width *= 2;
+
+    /* Only want the left half of double width lines */
+    if (lattr != LATTR_NORM && x * 2 >= term.cols)
+        return;
+
+    uint nfont;
+    switch (lattr) {
+        when LATTR_NORM: nfont = 0;
+        when LATTR_WIDE: nfont = FONT_WIDE;
+        otherwise:       nfont = FONT_WIDE + FONT_HIGH;
+    }
+    if (attr & ATTR_NARROW)
+        nfont |= FONT_NARROW;
+
+    if (bold_mode == BOLD_FONT && (attr & ATTR_BOLD))
+        nfont |= FONT_BOLD;
+    if (und_mode == UND_FONT && (attr & ATTR_UNDER))
+        nfont |= FONT_UNDERLINE;
+    another_font(nfont);
+
+    bool force_manual_underline = false;
+    if (!fonts[nfont]) {
+        if (nfont & FONT_UNDERLINE)
+            force_manual_underline = true;
+        // Don't force manual bold, it could be bad news.
+        nfont &= ~(FONT_BOLD | FONT_UNDERLINE);
+    }
+    another_font(nfont);
+    if (!fonts[nfont])
+        nfont = FONT_NORMAL;
+
+    colour_i fgi = (attr & ATTR_FGMASK) >> ATTR_FGSHIFT;
+    colour_i bgi = (attr & ATTR_BGMASK) >> ATTR_BGSHIFT;
+
+    if (term.rvideo) {
+        if (fgi >= 256)
+            fgi ^= 2;
+        if (bgi >= 256)
+            bgi ^= 2;
+    }
+    if (attr & ATTR_BOLD && cfg.bold_as_colour) {
+        if (fgi < 8)
+            fgi |= 8;
+        else if (fgi >= 256 && !cfg.bold_as_font)
+            fgi |= 1;
+    }
+    if (attr & ATTR_BLINK) {
+        if (bgi < 8)
+            bgi |= 8;
+        else if (bgi >= 256)
+            bgi |= 1;
+    }
+
+    colour fg = colours[fgi];
+    colour bg = colours[bgi];
+
+    if (attr & ATTR_DIM) {
+        fg = (fg & 0xFEFEFEFE) >> 1; // Halve the brightness.
+        if (!cfg.bold_as_colour || fgi >= 256)
+            fg += (bg & 0xFEFEFEFE) >> 1; // Blend with background.
+    }
+    if (attr & ATTR_REVERSE) {
+        colour t = fg; fg = bg; bg = t;
+    }
+    if (attr & ATTR_INVISIBLE)
+        fg = bg;
+
+    bool has_cursor = attr & (TATTR_ACTCURS | TATTR_PASCURS);
+    colour cursor_colour = 0;
+
+    if (has_cursor) {
+        colour wanted_cursor_colour =
+            colours[ime_open ? IME_CURSOR_COLOUR_I : CURSOR_COLOUR_I];
+
+        bool too_close = colour_dist(wanted_cursor_colour, bg) < 32768;
+
+        cursor_colour =
+            too_close ? colours[CURSOR_TEXT_COLOUR_I] : wanted_cursor_colour;
+
+        if ((attr & TATTR_ACTCURS) && term_cursor_type() == CUR_BLOCK) {
+            bg = cursor_colour;
+            fg = too_close ? wanted_cursor_colour : colours[CURSOR_TEXT_COLOUR_I];
+        }
+    }
+
+    SelectObject(dc, fonts[nfont]);
+    SetTextColor(dc, fg);
+    SetBkColor(dc, bg);
+
+    /* Check whether the text has any right-to-left characters */
+    bool has_rtl = false;
+    for (int i = 0; i < len && !has_rtl; i++)
+        has_rtl = is_rtl(text[i]);
+
+    uint eto_options = ETO_CLIPPED;
+    if (has_rtl) {
+        /* We've already done right-to-left processing in the screen buffer,
+         * so stop Windows from doing it again (and hence undoing our work).
+         * Don't always use this path because GetCharacterPlacement doesn't
+         * do Windows font linking.
+         */
+        char classes[len];
+        memset(classes, GCPCLASS_NEUTRAL, len);
+
+        GCP_RESULTSW gcpr = {
+            .lStructSize = sizeof(GCP_RESULTSW),
+            .lpClass = (void *)classes,
+            .lpGlyphs = text,
+            .nGlyphs = len
+        };
+
+        GetCharacterPlacementW(dc, text, len, 0, &gcpr,
+                               FLI_MASK | GCP_CLASSIN | GCP_DIACRITIC);
+        len = gcpr.nGlyphs;
+        eto_options |= ETO_GLYPH_INDEX;
+    }
+
+    bool combining = attr & TATTR_COMBINING;
+    int width = char_width * (combining ? 1 : len);
+    RECT box = {
+        .left = x, .top = y,
+        .right = min(x + width, font_width * term.cols + PADDING),
+        .bottom = y + font_height
+    };
+
+    /* Array with offsets between neighbouring characters */
+    int dxs[len];
+    int dx = combining ? 0 : char_width;
+    for (int i = 0; i < len; i++)
+        dxs[i] = dx;
+
+    int yt = y + cfg.row_spacing - font_height * (lattr == LATTR_BOT);
+
+    /* Finally, draw the text */
+    SetBkMode(dc, OPAQUE);
+    ExtTextOutW(dc, x, yt, eto_options | ETO_OPAQUE, &box, text, len, dxs);
+
+    /* Shadow bold */
+    if (bold_mode == BOLD_SHADOW && (attr & ATTR_BOLD)) {
+        SetBkMode(dc, TRANSPARENT);
+        ExtTextOutW(dc, x + 1, yt, eto_options, &box, text, len, dxs);
+    }
+
+    /* Manual underline */
+    if (lattr != LATTR_TOP &&
+        (force_manual_underline ||
+         (und_mode == UND_LINE && (attr & ATTR_UNDER)))) {
+        int dec = (lattr == LATTR_BOT) ? descent * 2 - font_height : descent;
+        HPEN oldpen = SelectObject(dc, CreatePen(PS_SOLID, 0, fg));
+        MoveToEx(dc, x, y + dec, null);
+        LineTo(dc, x + len * char_width, y + dec);
+        oldpen = SelectObject(dc, oldpen);
+        DeleteObject(oldpen);
+    }
+
+    if (has_cursor) {
+        HPEN oldpen = SelectObject(dc, CreatePen(PS_SOLID, 0, cursor_colour));
+        switch(term_cursor_type()) {
+            when CUR_BLOCK:
+                if (attr & TATTR_PASCURS) {
+                    HBRUSH oldbrush = SelectObject(dc, GetStockObject(NULL_BRUSH));
+                    Rectangle(dc, x, y, x + char_width, y + font_height);
+                    SelectObject(dc, oldbrush);
+                }
+            when CUR_LINE: {
+                int caret_width = 1;
+                SystemParametersInfo(SPI_GETCARETWIDTH, 0, &caret_width, 0);
+                if (caret_width > char_width)
+                    caret_width = char_width;
+                if (attr & TATTR_RIGHTCURS)
+                    x += char_width - caret_width;
+                if (attr & TATTR_ACTCURS) {
+                    HBRUSH oldbrush = SelectObject(dc, CreateSolidBrush(cursor_colour));
+                    Rectangle(dc, x, y, x + caret_width, y + font_height);
+                    DeleteObject(SelectObject(dc, oldbrush));
+                }
+                else if (attr & TATTR_PASCURS) {
+                    for (int dy = 0; dy < font_height; dy += 2)
+                        Polyline(
+                            dc, (POINT[]){{x, y + dy}, {x + caret_width, y + dy}}, 2);
+                }
+            }
+            when CUR_UNDERSCORE:
+                y += min(descent, font_height - 2);
+                if (attr & TATTR_ACTCURS)
+                    Rectangle(dc, x, y, x + char_width, y + 2);
+                else if (attr & TATTR_PASCURS) {
+                    for (int dx = 0; dx < char_width; dx += 2) {
+                        SetPixel(dc, x + dx, y, cursor_colour);
+                        SetPixel(dc, x + dx, y + 1, cursor_colour);
+                    }
+                }
+        }
+        DeleteObject(SelectObject(dc, oldpen));
+    }
+}
+
+#endif  // if 0
 
 /* void win_update_mouse(void); */
 void win_update_mouse(void)

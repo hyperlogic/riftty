@@ -4,10 +4,8 @@
 #include "keyboard.h"
 #include "opengl.h"
 #include "appconfig.h"
-
-#include "glyphblaster/src/gb_context.h"
-#include "glyphblaster/src/gb_font.h"
-#include "glyphblaster/src/gb_text.h"
+#include "render.h"
+#include "gb_context.h"
 
 #include "abaci.h"
 
@@ -22,12 +20,8 @@ extern "C" {
 #include "charset.h"
 #include "term.h"
 #include "child.h"
+#include "win.h"
 }
-
-GB_Context* s_gb = 0;
-GB_Font* s_font = 0;
-GB_Text* s_text = 0;
-std::string s_string;
 
 // time tracking
 unsigned int s_ticks = 0;
@@ -40,31 +34,6 @@ static uint32_t MakeColor(uint8_t red, uint8_t green, uint8_t blue, uint8_t alph
 void Process()
 {
     child_poll();
-    /*
-    const size_t BUFFER_SIZE = 1024;
-    char buffer[BUFFER_SIZE];
-    int size;
-    while((size = Pty_Read(s_pty, buffer, BUFFER_SIZE)) > 0) {
-        s_string += buffer;
-
-        if (s_text) {
-            GB_TextRelease(s_gb, s_text);
-            s_text = NULL;
-        }
-
-        // create a new text
-        uint32_t origin[2] = {0, 0};
-        uint32_t size[2] = {s_config->width, s_config->height};
-        uint32_t textColor = MakeColor(255, 255, 255, 255);
-        GB_ERROR err = GB_TextMake(s_gb, (uint8_t*)s_string.c_str(), s_font, textColor,
-                                   origin, size, GB_HORIZONTAL_ALIGN_LEFT,
-                                   GB_VERTICAL_ALIGN_CENTER, &s_text);
-        if (err != GB_ERROR_NONE) {
-            fprintf(stderr, "GB_MakeText Error %s\n", GB_ErrorToString(err));
-            exit(1);
-        }
-    }
-    */
 }
 
 void Render()
@@ -73,8 +42,10 @@ void Render()
     glClearColor(clearColor.x, clearColor.y, clearColor.z, clearColor.w);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    if (s_text) {
-        GB_ERROR err = GB_TextDraw(s_gb, s_text);
+    for (size_t i = 0; i < s_context.textCount; i++)
+    {
+        GB_ERROR err = GB_TextDraw(s_context.gb, s_context.text[i]);
+
         if (err != GB_ERROR_NONE) {
             fprintf(stderr, "GB_DrawText Error %s\n", GB_ErrorToString(err));
             exit(1);
@@ -86,14 +57,8 @@ void Render()
 void OnKeyPress(int ascii, bool down)
 {
     if (down) {
-        /*
         const char c = (char)ascii;
-        if (!Pty_Send(s_pty, &c, 1))
-        {
-            fprintf(stderr, "Pty_Send() failed");
-            exit(1);
-        }
-        */
+        child_send(&c, 1);
     }
 }
 
@@ -144,30 +109,18 @@ int main(int argc, char* argv[])
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     SDL_GL_SwapBuffers();
 
-    // create the context
-    GB_ERROR err;
-    err = GB_ContextMake(128, 3, GB_TEXTURE_FORMAT_ALPHA, &s_gb);
-    if (err != GB_ERROR_NONE) {
-        fprintf(stderr, "GB_Init Error %d\n", err);
-        exit(1);
-    }
-
-    // create a font
-    err = GB_FontMake(s_gb, "font/SourceCodePro-Bold.ttf", 14, GB_RENDER_NORMAL,
-                      GB_HINT_DEFAULT, &s_font);
-    if (err != GB_ERROR_NONE) {
-        fprintf(stderr, "GB_MakeFont Error %s\n", GB_ErrorToString(err));
-        exit(1);
-    }
-
-    GB_ContextSetTextRenderFunc(s_gb, TextRenderFunc);
-
     SetRepeatKeyCallback(OnKeyPress);
+
+    win_init();
+
+    GB_ContextSetTextRenderFunc(s_context.gb, TextRenderFunc);
 
     init_config();
     cs_init();  // TODO: code pages do not want
     // TODO: load config from /etc/riffty or ~/.rifttyrc
     finish_config();
+    win_reconfig();
+
     // TODO: get SHELL from env
 
     cs_reconfig(); // TODO: do not want
@@ -242,24 +195,7 @@ int main(int argc, char* argv[])
     }
 
     child_kill(true);
-
-    if (s_text) {
-        err = GB_TextRelease(s_gb, s_text);
-        if (err != GB_ERROR_NONE) {
-            fprintf(stderr, "GB_ReleaseText Error %s\n", GB_ErrorToString(err));
-            exit(1);
-        }
-    }
-    err = GB_FontRelease(s_gb, s_font);
-    if (err != GB_ERROR_NONE) {
-        fprintf(stderr, "GB_ReleaseFont Error %s\n", GB_ErrorToString(err));
-        exit(1);
-    }
-    err = GB_ContextRelease(s_gb);
-    if (err != GB_ERROR_NONE) {
-        fprintf(stderr, "GB_Shutdown Error %s\n", GB_ErrorToString(err));
-        exit(1);
-    }
+    win_shutdown();
 
     return 0;
 }

@@ -3,6 +3,19 @@
 
 #include "term.h"
 
+struct WIN_Context {
+    struct GB_Context *gb;
+    struct GB_Font *font;
+    struct GB_Text **text;
+    size_t textCapacity;
+    size_t textCount;
+};
+
+extern struct WIN_Context s_context;
+
+void win_init(void);
+void win_shutdown(void);
+
 void win_reconfig(void);
 
 void win_update(void);
