@@ -56,7 +56,7 @@ void win_update()
 /* void win_schedule_update(void); */
 void win_schedule_update(void)
 {
-    // do nothing, rendering will occur anyhow
+    term_paint();
 }
 
 /* void win_text(int x, int y, wchar *text, int len, uint attr, int lattr); */
