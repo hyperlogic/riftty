@@ -6,7 +6,7 @@
 
 extern char *home, *cmd;
 
-void child_create(char *argv[], struct winsize *winp);
+void child_create(const char *argv[], struct winsize *winp);
 void child_proc(void);
 void child_kill(bool point_blank);
 void child_write(const char *, uint len);

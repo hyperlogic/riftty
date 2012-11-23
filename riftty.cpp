@@ -159,13 +159,6 @@ int main(int argc, char* argv[])
 
     GB_ContextSetTextRenderFunc(s_gb, TextRenderFunc);
 
-    /*
-    if (!Pty_Make(&s_pty)) {
-        fprintf(stderr, "Pty_Make failed");
-        exit(1);
-    }
-    */
-
     SetRepeatKeyCallback(OnKeyPress);
 
     init_config();
@@ -184,7 +177,7 @@ int main(int argc, char* argv[])
     int term_width = font_width * cfg.cols;
     int term_height = font_height * cfg.rows;
 
-    char* login_argv[] = {"login", "-pfl", "ajt", NULL};
+    const char* login_argv[] = {"login", "-pfl", "ajt", NULL};
     child_create(login_argv, &(struct winsize){cfg.rows, cfg.cols, term_width, term_height});
     child_proc();
     fprintf(stderr, "should never get here!\n");
