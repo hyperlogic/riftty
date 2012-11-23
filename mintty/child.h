@@ -7,7 +7,7 @@
 extern char *home, *cmd;
 
 void child_create(const char *argv[], struct winsize *winp);
-void child_proc(void);
+void child_poll(void);
 void child_kill(bool point_blank);
 void child_write(const char *, uint len);
 void child_printf(const char *fmt, ...) __attribute__((format(printf, 1, 2)));

@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <string>
 #include "SDL/SDL.h"
-#include "pty.h"
 #include "keyboard.h"
 #include "opengl.h"
 #include "appconfig.h"
@@ -25,7 +24,6 @@ extern "C" {
 #include "child.h"
 }
 
-Pty* s_pty = 0;
 GB_Context* s_gb = 0;
 GB_Font* s_font = 0;
 GB_Text* s_text = 0;
@@ -41,6 +39,8 @@ static uint32_t MakeColor(uint8_t red, uint8_t green, uint8_t blue, uint8_t alph
 
 void Process()
 {
+    child_poll();
+    /*
     const size_t BUFFER_SIZE = 1024;
     char buffer[BUFFER_SIZE];
     int size;
@@ -64,6 +64,7 @@ void Process()
             exit(1);
         }
     }
+    */
 }
 
 void Render()
@@ -85,12 +86,14 @@ void Render()
 void OnKeyPress(int ascii, bool down)
 {
     if (down) {
+        /*
         const char c = (char)ascii;
         if (!Pty_Send(s_pty, &c, 1))
         {
             fprintf(stderr, "Pty_Send() failed");
             exit(1);
         }
+        */
     }
 }
 
@@ -179,8 +182,6 @@ int main(int argc, char* argv[])
 
     const char* login_argv[] = {"login", "-pfl", "ajt", NULL};
     child_create(login_argv, &(struct winsize){cfg.rows, cfg.cols, term_width, term_height});
-    child_proc();
-    fprintf(stderr, "should never get here!\n");
 
     int done = 0;
     while (!done)

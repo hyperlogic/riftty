@@ -77,7 +77,7 @@ restore_cursor(void)
   term_cursor *curs = &term.curs;
   *curs = term.saved_cursors[term.on_alt_screen];
   term.erase_char.attr = curs->attr & (ATTR_FGMASK | ATTR_BGMASK);
-  
+
  /* Make sure the window hasn't shrunk since the save */
   if (curs->x >= term.cols)
     curs->x = term.cols - 1;
@@ -162,7 +162,7 @@ write_tab(void)
   do
     curs->x++;
   while (curs->x < term.cols - 1 && !term.tabs[curs->x]);
-  
+
   if ((term.lines[curs->y]->attr & LATTR_MODE) != LATTR_NORM) {
     if (curs->x >= term.cols / 2)
       curs->x = term.cols / 2 - 1;
@@ -196,7 +196,7 @@ write_char(wchar c, int width)
 {
   if (!c)
     return;
-  
+
   term_cursor *curs = &term.curs;
   termline *line = term.lines[curs->y];
   void put_char(wchar c)
@@ -204,7 +204,7 @@ write_char(wchar c, int width)
     clear_cc(line, curs->x);
     line->chars[curs->x].chr = c;
     line->chars[curs->x].attr = curs->attr;
-  }  
+  }
 
   if (curs->wrapnext && curs->autowrap && width > 0) {
     line->attr |= LATTR_WRAPPED;
@@ -789,7 +789,7 @@ do_csi(uchar c)
         curs->wrapnext = false;
       }
     WHEN CPAIR('*', '|'):     /* DECSNLS */
-     /* 
+     /*
       * Set number of lines on screen
       * VT420 uses VGA like hardware and can
       * support any size in reasonable range
@@ -817,7 +817,7 @@ do_csi(uchar c)
     WHEN 'x':        /* DECREQTPARM: report terminal characteristics */
       child_printf("\e[%c;1;1;112;112;1;0x", '2' + arg0);
     WHEN 'Z': {      /* CBT (Cursor Backward Tabulation) */
-      int n = arg0_def1; 
+      int n = arg0_def1;
       while (--n >= 0 && curs->x > 0) {
         do
           curs->x--;
@@ -857,7 +857,7 @@ do_dcs(void)
 
   if (*s++ != '$')
     return;
-  
+
   uint attr = term.curs.attr;
 
   if (!strcmp(s, "qm")) { // SGR
@@ -1021,260 +1021,274 @@ term_flush(void)
 void
 term_write(const char *buf, uint len)
 {
- /*
-  * During drag-selects, we do not process terminal input,
-  * because the user will want the screen to hold still to
-  * be selected.
-  */
-  if (term_selecting()) {
-    if (term.inbuf_pos + len > term.inbuf_size) {
-      term.inbuf_size = MAX(term.inbuf_pos, term.inbuf_size * 4 + 4096);
-      term.inbuf = mintty_renewn(term.inbuf, term.inbuf_size);
-    }
-    memcpy(term.inbuf + term.inbuf_pos, buf, len);
-    term.inbuf_pos += len;
-    return;
-  }
-    
-  // Reset cursor blinking.
-  term.cblinker = 1;
-  term_schedule_cblink();
-
-  uint pos = 0;
-  while (pos < len) {
-    uchar c = buf[pos++];
-    
-   /*
-    * If we're printing, add the character to the printer
-    * buffer.
-    */
-    if (term.printing) {
-      if (term.printbuf_pos >= term.printbuf_size) {
-        term.printbuf_size = term.printbuf_size * 4 + 4096;
-        term.printbuf = mintty_renewn(term.printbuf, term.printbuf_size);
-      }
-      term.printbuf[term.printbuf_pos++] = c;
-
-     /*
-      * If we're in print-only mode, we use a much simpler
-      * state machine designed only to recognise the ESC[4i
-      * termination sequence.
-      */
-      if (term.only_printing) {
-        if (c == '\e')
-          term.print_state = 1;
-        else if (c == '[' && term.print_state == 1)
-          term.print_state = 2;
-        else if (c == '4' && term.print_state == 2)
-          term.print_state = 3;
-        else if (c == 'i' && term.print_state == 3) {
-          term.printbuf_pos -= 4;
-          term_print_finish();
+    /*
+     * During drag-selects, we do not process terminal input,
+     * because the user will want the screen to hold still to
+     * be selected.
+     */
+    if (term_selecting()) {
+        if (term.inbuf_pos + len > term.inbuf_size) {
+            term.inbuf_size = MAX(term.inbuf_pos, term.inbuf_size * 4 + 4096);
+            term.inbuf = mintty_renewn(term.inbuf, term.inbuf_size);
         }
-        else
-          term.print_state = 0;
-        continue;
-      }
+        memcpy(term.inbuf + term.inbuf_pos, buf, len);
+        term.inbuf_pos += len;
+        return;
     }
 
-    switch (term.state) {
-      WHEN NORMAL: {
-        
-        wchar wc;
+    // Reset cursor blinking.
+    term.cblinker = 1;
+    term_schedule_cblink();
 
-        if (term.curs.oem_acs && !memchr("\e\n\r\b", c, 4)) {
-          if (term.curs.oem_acs == 2)
-            c |= 0x80;
-          write_char(cs_btowc_glyph(c), 1);
-          continue;
-        }
-        
-        switch (cs_mb1towc(&wc, c)) {
-          WHEN 0: // NUL or low surrogate
-            if (wc)
-              pos--;
-          WHEN -1: // Encoding error
-            write_error();
-            if (term.in_mb_char || term.high_surrogate)
-              pos--;
-            term.high_surrogate = 0;
-            term.in_mb_char = false;
-            cs_mb1towc(0, 0); // Clear decoder state
-            continue;
-          WHEN -2: // Incomplete character
-            term.in_mb_char = true;
-            continue;
-        }
-        
-        term.in_mb_char = false;
-        
-        // Fetch previous high surrogate 
-        wchar hwc = term.high_surrogate;
-        term.high_surrogate = 0;
-        
-        if (is_low_surrogate(wc)) {
-          if (hwc) {
-            #if HAS_LOCALES
-            int width = wcswidth((wchar[]){hwc, wc}, 2);
-            #else
-            int width = xcwidth(combine_surrogates(hwc, wc));
-            #endif
-            write_char(hwc, width);
-            write_char(wc, 0);
-          }
-          else
-            write_error();
-          continue;
-        }
-        
-        if (hwc) // Previous high surrogate not followed by low one
-          write_error();
-        
-        if (is_high_surrogate(wc)) {
-          term.high_surrogate = wc;
-          continue;
-        }
-        
-        // Control characters
-        if (wc < 0x20 || wc == 0x7F) {
-          if (!do_ctrl(wc) && c == wc) {
-            wc = cs_btowc_glyph(c);
-            if (wc != c)
-              write_char(wc, 1);
-          }
-          continue;
+    uint pos = 0;
+    while (pos < len) {
+        uchar c = buf[pos++];
+
+        /*
+         * If we're printing, add the character to the printer
+         * buffer.
+         */
+        if (term.printing) {
+            if (term.printbuf_pos >= term.printbuf_size) {
+                term.printbuf_size = term.printbuf_size * 4 + 4096;
+                term.printbuf = mintty_renewn(term.printbuf, term.printbuf_size);
+            }
+            term.printbuf[term.printbuf_pos++] = c;
+
+            /*
+             * If we're in print-only mode, we use a much simpler
+             * state machine designed only to recognise the ESC[4i
+             * termination sequence.
+             */
+            if (term.only_printing) {
+                if (c == '\e')
+                    term.print_state = 1;
+                else if (c == '[' && term.print_state == 1)
+                    term.print_state = 2;
+                else if (c == '4' && term.print_state == 2)
+                    term.print_state = 3;
+                else if (c == 'i' && term.print_state == 3) {
+                    term.printbuf_pos -= 4;
+                    term_print_finish();
+                }
+                else
+                    term.print_state = 0;
+                continue;
+            }
         }
 
-        // Everything else
-        #if HAS_LOCALES
-        int width = wcwidth(wc);
-        #else
-        int width = xcwidth(wc);
-        #endif
-        
-        switch(term.curs.csets[term.curs.g1]) {
-          WHEN CSET_LINEDRW:
-            if (0x60 <= wc && wc <= 0x7E)
-              wc = win_linedraw_chars[wc - 0x60];
-          WHEN CSET_GBCHR:
-            if (c == '#')
-              wc = 0xA3; // pound sign
-          OTHERWISE: ;
-        }
-        write_char(wc, width);
-      }
-      WHEN ESCAPE OR CMD_ESCAPE:
-        if (c < 0x20)
-          do_ctrl(c);
-        else if (c < 0x30)
-          term.esc_mod = term.esc_mod ? 0xFF : c;
-        else if (c == '\\' && term.state == CMD_ESCAPE) {
-          /* Process DCS or OSC sequence if we see ST. */
-          do_cmd();
-          term.state = NORMAL;
-        }
-        else
-          do_esc(c);
-      WHEN CSI_ARGS:
-        if (c < 0x20)
-          do_ctrl(c);
-        else if (c == ';') {
-          if (term.csi_argc < lengthof(term.csi_argv))
-            term.csi_argc++;
-        }
-        else if (c >= '0' && c <= '9') {
-          uint i = term.csi_argc - 1;
-          if (i < lengthof(term.csi_argv))
-            term.csi_argv[i] = 10 * term.csi_argv[i] + c - '0';
-        }
-        else if (c < 0x40)
-          term.esc_mod = term.esc_mod ? 0xFF : c;
-        else {
-          do_csi(c);
-          term.state = NORMAL;
-        }
-      WHEN OSC_START:
-        term.cmd_len = 0;
-        switch (c) {
-          WHEN 'P':  /* Linux palette sequence */
-            term.state = OSC_PALETTE;
-          WHEN 'R':  /* Linux palette reset */
-            win_reset_colours();
-            term.state = NORMAL;
-          WHEN '0' ... '9':  /* OSC command number */
-            term.cmd_num = c - '0';
-            term.state = OSC_NUM;
-          WHEN ';':
-            term.cmd_num = 0;
-            term.state = CMD_STRING;
-          WHEN '\a' OR '\n' OR '\r':
-            term.state = NORMAL;
-          WHEN '\e':
-            term.state = ESCAPE;
-          OTHERWISE:
-            term.state = IGNORE_STRING;
-        }
-      WHEN OSC_NUM:
-        switch (c) {
-          WHEN '0' ... '9':  /* OSC command number */
-            term.cmd_num = term.cmd_num * 10 + c - '0';
-          WHEN ';':
-            term.state = CMD_STRING;
-          WHEN '\a' OR '\n' OR '\r':
-            term.state = NORMAL;
-          WHEN '\e':
-            term.state = ESCAPE;
-          OTHERWISE:
-            term.state = IGNORE_STRING;
-        }
-      WHEN OSC_PALETTE:
-        if (isxdigit(c)) {
-          // The dodgy Linux palette sequence: keep going until we have
-          // seven hexadecimal digits.
-          term.cmd_buf[term.cmd_len++] = c;
-          if (term.cmd_len == 7) {
-            uint n, r, g, b;
-            sscanf(term.cmd_buf, "%1x%2x%2x%2x", &n, &r, &g, &b);
-            win_set_colour(n, make_colour(r, g, b));
-            term.state = NORMAL;
-          }
-        }
-        else {
-          // End of sequence. Put the character back unless the sequence was 
-          // terminated properly.
-          term.state = NORMAL;
-          if (c != '\a') {
-            pos--;
-            continue;
-          }
-        }
-      WHEN CMD_STRING:
-        switch (c) {
-          WHEN '\n' OR '\r':
-            term.state = NORMAL;
-          WHEN '\a':
-            do_cmd();
-            term.state = NORMAL;
-          WHEN '\e':
-            term.state = CMD_ESCAPE;
-          OTHERWISE:
-            if (term.cmd_len < lengthof(term.cmd_buf) - 1)
-              term.cmd_buf[term.cmd_len++] = c;
-        }
-      WHEN IGNORE_STRING:
-        switch (c) {
-          WHEN '\n' OR '\r' OR '\a':
-            term.state = NORMAL;
-          WHEN '\e':
-            term.state = ESCAPE;
-        }
-    }
-  }
-  win_schedule_update();
+        switch (term.state) {
+
+            WHEN NORMAL: {
+                wchar wc;
+                if (term.curs.oem_acs && !memchr("\e\n\r\b", c, 4)) {
+                    if (term.curs.oem_acs == 2)
+                        c |= 0x80;
+                    write_char(cs_btowc_glyph(c), 1);
+                    continue;
+                }
+
+                switch (cs_mb1towc(&wc, c)) {
+                    WHEN 0: // NUL or low surrogate
+                        if (wc)
+                            pos--;
+                    WHEN -1: // Encoding error
+                        write_error();
+                        if (term.in_mb_char || term.high_surrogate)
+                            pos--;
+                        term.high_surrogate = 0;
+                        term.in_mb_char = false;
+                        cs_mb1towc(0, 0); // Clear decoder state
+                        continue;
+                    WHEN -2: // Incomplete character
+                        term.in_mb_char = true;
+                        continue;
+                }
+
+                term.in_mb_char = false;
+
+                // Fetch previous high surrogate
+                wchar hwc = term.high_surrogate;
+                term.high_surrogate = 0;
+
+                if (is_low_surrogate(wc)) {
+                    if (hwc) {
+#if HAS_LOCALES
+                        int width = wcswidth((wchar[]){hwc, wc}, 2);
+#else
+                        int width = xcwidth(combine_surrogates(hwc, wc));
+#endif
+                        write_char(hwc, width);
+                        write_char(wc, 0);
+                    }
+                    else
+                        write_error();
+                    continue;
+                }
+
+                if (hwc) // Previous high surrogate not followed by low one
+                    write_error();
+
+                if (is_high_surrogate(wc)) {
+                    term.high_surrogate = wc;
+                    continue;
+                }
+
+                // Control characters
+                if (wc < 0x20 || wc == 0x7F) {
+                    if (!do_ctrl(wc) && c == wc) {
+                        wc = cs_btowc_glyph(c);
+                        if (wc != c)
+                            write_char(wc, 1);
+                    }
+                    continue;
+                }
+
+                // Everything else
+#if HAS_LOCALES
+                int width = wcwidth(wc);
+#else
+                int width = xcwidth(wc);
+#endif
+
+                switch (term.curs.csets[term.curs.g1]) {
+                    WHEN CSET_LINEDRW:
+                        if (0x60 <= wc && wc <= 0x7E)
+                            wc = win_linedraw_chars[wc - 0x60];
+                    WHEN CSET_GBCHR:
+                        if (c == '#')
+                            wc = 0xA3; // pound sign
+                    OTHERWISE: ;
+                }
+                write_char(wc, width);
+            }
+
+            WHEN ESCAPE OR CMD_ESCAPE: {
+                if (c < 0x20)
+                    do_ctrl(c);
+                else if (c < 0x30)
+                    term.esc_mod = term.esc_mod ? 0xFF : c;
+                else if (c == '\\' && term.state == CMD_ESCAPE) {
+                    /* Process DCS or OSC sequence if we see ST. */
+                    do_cmd();
+                    term.state = NORMAL;
+                }
+                else
+                    do_esc(c);
+            }
+
+            WHEN CSI_ARGS: {
+                if (c < 0x20)
+                    do_ctrl(c);
+                else if (c == ';') {
+                    if (term.csi_argc < lengthof(term.csi_argv))
+                        term.csi_argc++;
+                }
+                else if (c >= '0' && c <= '9') {
+                    uint i = term.csi_argc - 1;
+                    if (i < lengthof(term.csi_argv))
+                        term.csi_argv[i] = 10 * term.csi_argv[i] + c - '0';
+                }
+                else if (c < 0x40)
+                    term.esc_mod = term.esc_mod ? 0xFF : c;
+                else {
+                    do_csi(c);
+                    term.state = NORMAL;
+                }
+            }
+
+            WHEN OSC_START: {
+                term.cmd_len = 0;
+                switch (c) {
+                    WHEN 'P':  /* Linux palette sequence */
+                        term.state = OSC_PALETTE;
+                    WHEN 'R':  /* Linux palette reset */
+                        win_reset_colours();
+                        term.state = NORMAL;
+                    WHEN '0' ... '9':  /* OSC command number */
+                        term.cmd_num = c - '0';
+                        term.state = OSC_NUM;
+                    WHEN ';':
+                        term.cmd_num = 0;
+                        term.state = CMD_STRING;
+                    WHEN '\a' OR '\n' OR '\r':
+                        term.state = NORMAL;
+                    WHEN '\e':
+                        term.state = ESCAPE;
+                    OTHERWISE:
+                        term.state = IGNORE_STRING;
+                }
+            }
+
+            WHEN OSC_NUM: {
+                switch (c) {
+                    WHEN '0' ... '9':  /* OSC command number */
+                        term.cmd_num = term.cmd_num * 10 + c - '0';
+                    WHEN ';':
+                        term.state = CMD_STRING;
+                    WHEN '\a' OR '\n' OR '\r':
+                        term.state = NORMAL;
+                    WHEN '\e':
+                        term.state = ESCAPE;
+                    OTHERWISE:
+                        term.state = IGNORE_STRING;
+                }
+            }
+
+            WHEN OSC_PALETTE: {
+                if (isxdigit(c)) {
+                    // The dodgy Linux palette sequence: keep going until we have
+                    // seven hexadecimal digits.
+                    term.cmd_buf[term.cmd_len++] = c;
+                    if (term.cmd_len == 7) {
+                        uint n, r, g, b;
+                        sscanf(term.cmd_buf, "%1x%2x%2x%2x", &n, &r, &g, &b);
+                        win_set_colour(n, make_colour(r, g, b));
+                        term.state = NORMAL;
+                    }
+                }
+                else {
+                    // End of sequence. Put the character back unless the sequence was
+                    // terminated properly.
+                    term.state = NORMAL;
+                    if (c != '\a') {
+                        pos--;
+                        continue;
+                    }
+                }
+            }
+
+            WHEN CMD_STRING: {
+                switch (c) {
+                    WHEN '\n' OR '\r':
+                        term.state = NORMAL;
+                    WHEN '\a':
+                        do_cmd();
+                        term.state = NORMAL;
+                    WHEN '\e':
+                        term.state = CMD_ESCAPE;
+                OTHERWISE:
+                    if (term.cmd_len < lengthof(term.cmd_buf) - 1)
+                        term.cmd_buf[term.cmd_len++] = c;
+                }
+            }
+
+            WHEN IGNORE_STRING: {
+                switch (c) {
+                    WHEN '\n' OR '\r' OR '\a':
+                        term.state = NORMAL;
+                    WHEN '\e':
+                        term.state = ESCAPE;
+                }
+            }
+
+        } // end switch
+    } // end while
+    win_schedule_update();
 #if 0
-  if (term.printing) {
-    printer_write(term.printbuf, term.printbuf_pos);
-    term.printbuf_pos = 0;
-  }
+    if (term.printing) {
+        printer_write(term.printbuf, term.printbuf_pos);
+        term.printbuf_pos = 0;
+    }
 #endif
 }

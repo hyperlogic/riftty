@@ -188,32 +188,28 @@ child_create(const char *argv[], struct winsize *winp)
 }
 
 void
-child_proc(void)
+child_poll(void)
 {
-    for (;;) {
+    struct pollfd pfd = {pty_fd, POLLRDBAND, 0};
 
-        struct pollfd pfd = {pty_fd, POLLRDBAND, 0};
+    poll(&pfd, 1, 0);
+    if (pfd.revents & POLLRDBAND) {
 
-        poll(&pfd, 1, 0);
-        if (pfd.revents & POLLRDBAND) {
+        if (term.paste_buffer)
+            term_send_paste();
 
-            if (term.paste_buffer)
-                term_send_paste();
+        fprintf(stderr, "before read!\n");
 
-            fprintf(stderr, "before read!\n");
+        static char buf[4096];
+        int len = read(pty_fd, buf, sizeof buf);
 
-            static char buf[4096];
-            int len = read(pty_fd, buf, sizeof buf);
-
-            if (len == -1) {
-                fprintf(stderr, "after read, pty_ft = %d, error = %s\n", pty_fd, strerror(errno));
-            } else if (len > 0) {
-                fprintf(stderr, "after read, len = %d bytes\n", len);
-                write(2, buf, len);
-                term_write(buf, len);
-                if (log_fd >= 0)
-                    write(log_fd, buf, len);
-            }
+        if (len == -1) {
+            fprintf(stderr, "mintty: after read, pty_ft = %d, error = %s\n", pty_fd, strerror(errno));
+        } else if (len > 0) {
+            fprintf(stderr, "mintty: after read, len = %d bytes\n", len);
+            term_write(buf, len);
+            if (log_fd >= 0)
+                write(log_fd, buf, len);
         }
     }
 }
