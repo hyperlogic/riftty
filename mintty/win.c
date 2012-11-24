@@ -158,6 +158,8 @@ void win_text(int x, int y, wchar *text, int len, uint attr, int lattr)
         s_temp[ii + i] = (char)text[i];
     s_temp[ii + len] = 0;
 
+    fprintf(stderr, "    -> %s\n", s_temp + ii);
+
     // allocate a new text object!
     uint32_t origin[2] = {0, 0};
     uint32_t size[2] = {1000, 1000};

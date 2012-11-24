@@ -857,11 +857,15 @@ term_invalidate(int left, int top, int right, int bottom)
     int i, j;
     for (i = top; i <= bottom && i < term.rows; i++) {
         if ((term.displines[i]->attr & LATTR_MODE) == LATTR_NORM)
-            for (j = left; j <= right && j < term.cols; j++)
+            for (j = left; j <= right && j < term.cols; j++) {
                 term.displines[i]->chars[j].attr |= ATTR_INVALID;
+                term.displines[i]->chars[j].attr |= ~DATTR_STARTRUN;
+            }
         else
-            for (j = left / 2; j <= right / 2 + 1 && j < term.cols; j++)
+            for (j = left / 2; j <= right / 2 + 1 && j < term.cols; j++) {
                 term.displines[i]->chars[j].attr |= ATTR_INVALID;
+                term.displines[i]->chars[j].attr |= ~DATTR_STARTRUN;
+            }
     }
 }
 
