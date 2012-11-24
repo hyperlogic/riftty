@@ -129,7 +129,7 @@ void win_schedule_update(void)
 /* void win_text(int x, int y, wchar *text, int len, uint attr, int lattr); */
 void win_text(int x, int y, wchar *text, int len, uint attr, int lattr)
 {
-    fprintf(stderr, "mintty: win_text() x = %d, y = %d, text = %p, len = %d, attr = %u, lattr = %d\n", x, y, text, len, attr, lattr);
+    //fprintf(stderr, "mintty: win_text() x = %d, y = %d, text = %p, len = %d, attr = %u, lattr = %d\n", x, y, text, len, attr, lattr);
 
     // realloc text ptrs, if necessary
     if (s_context.textCount == s_context.textCapacity)
@@ -158,7 +158,7 @@ void win_text(int x, int y, wchar *text, int len, uint attr, int lattr)
         s_temp[ii + i] = (char)text[i];
     s_temp[ii + len] = 0;
 
-    fprintf(stderr, "    -> %s\n", s_temp + ii);
+    //fprintf(stderr, "    -> %s\n", s_temp + ii);
 
     // allocate a new text object!
     uint32_t origin[2] = {0, 0};

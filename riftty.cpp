@@ -31,7 +31,7 @@ static uint32_t MakeColor(uint8_t red, uint8_t green, uint8_t blue, uint8_t alph
     return alpha << 24 | blue << 16 | green << 8 | red;
 }
 
-void Process()
+void Process(float dt)
 {
     child_poll();
 }
@@ -52,14 +52,6 @@ void Render()
         }
     }
     SDL_GL_SwapBuffers();
-}
-
-void OnKeyPress(int ascii, bool down)
-{
-    if (down) {
-        const char c = (char)ascii;
-        child_send(&c, 1);
-    }
 }
 
 int main(int argc, char* argv[])
@@ -100,6 +92,8 @@ int main(int argc, char* argv[])
 
     SDL_WM_SetCaption(config.title.c_str(), config.title.c_str());
 
+    SDL_EnableKeyRepeat(SDL_DEFAULT_REPEAT_DELAY, SDL_DEFAULT_REPEAT_INTERVAL);
+
     if (!screen)
         fprintf(stderr, "Couldn't create SDL screen!\n");
 
@@ -108,8 +102,6 @@ int main(int argc, char* argv[])
     glClearColor(clearColor.x, clearColor.y, clearColor.z, clearColor.w);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     SDL_GL_SwapBuffers();
-
-    SetRepeatKeyCallback(OnKeyPress);
 
     win_init();
 
@@ -188,8 +180,7 @@ int main(int argc, char* argv[])
             float dt = (now - s_ticks) / 1000.0f;	// convert to seconds.
             s_ticks = now;
 
-            KeyboardProcess(dt);
-            Process();
+            Process(dt);
             Render();
         }
     }
