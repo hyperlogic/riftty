@@ -286,11 +286,13 @@ child_printf(const char *fmt, ...)
 void
 child_send(const char *buf, uint len)
 {
+    /*
     fprintf(stderr, "mintty: child_send ");
     int i;
     for (i = 0; i < len; i++)
         fprintf(stderr, "%c", buf[i]);
     fprintf(stderr, "\n");
+    */
 
     term_reset_screen();
     if (term.echoing)

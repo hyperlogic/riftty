@@ -79,9 +79,11 @@ int main(int argc, char* argv[])
     SDL_Surface* screen;
     if (config.fullscreen)
     {
-        int width = videoInfo->current_w;
-        int height = videoInfo->current_h;
-        int bpp = videoInfo->vfmt->BitsPerPixel;
+        int width = config.width;//videoInfo->current_w;
+        int height = config.height;//videoInfo->current_h;
+        int bpp = 32;//videoInfo->vfmt->BitsPerPixel;
+
+        fprintf(stderr, "fullscreen : width = %d, height = %d, bpp = %d\n", width, height, bpp);
         screen = SDL_SetVideoMode(width, height, bpp,
                                   SDL_HWSURFACE | SDL_OPENGL | SDL_FULLSCREEN);
     }
@@ -95,7 +97,10 @@ int main(int argc, char* argv[])
     SDL_EnableKeyRepeat(SDL_DEFAULT_REPEAT_DELAY, SDL_DEFAULT_REPEAT_INTERVAL);
 
     if (!screen)
+    {
         fprintf(stderr, "Couldn't create SDL screen!\n");
+        exit(2);
+    }
 
     // clear to black
     Vector4f clearColor(0, 0, 0, 1);
@@ -109,6 +114,11 @@ int main(int argc, char* argv[])
 
     init_config();
     cs_init();  // TODO: code pages do not want
+
+    // TODO: determine this based on window-size & font-size or vice versa.
+    cfg.rows = 42;
+    cfg.cols = 124;
+
     // TODO: load config from /etc/riffty or ~/.rifttyrc
     finish_config();
     win_reconfig();
