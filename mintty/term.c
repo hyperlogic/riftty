@@ -286,7 +286,7 @@ term_resize(int newrows, int newcols)
      * lines around within our data structures, because lineptr()
      * will take care of resizing each individual line if
      * necessary. So:
-     * 
+     *
      *  - If the new screen is longer, we shunt lines in from temporary
      *    scrollback if possible, otherwise we add new blank lines at
      *    the bottom.
@@ -295,7 +295,7 @@ term_resize(int newrows, int newcols)
      *    the bottom if possible, otherwise shunt lines above the cursor
      *    to scrollback if possible, otherwise delete lines below the
      *    cursor.
-     * 
+     *
      *  - Then, if the new scrollback length is less than the
      *    amount of scrollback we actually have, we must throw some
      *    away.
@@ -310,7 +310,7 @@ term_resize(int newrows, int newcols)
         int removed = term.rows - newrows;
         int destroy = MIN(removed, term.rows - (curs->y + 1));
         int store = removed - destroy;
-    
+
         // Push removed lines into scrollback
         for (i = 0; i < store; i++) {
             termline *line = lines[i];
@@ -320,31 +320,31 @@ term_resize(int newrows, int newcols)
 
         // Move up remaining lines
         memmove(lines, lines + store, newrows * sizeof(termline *));
-    
+
         // Destroy removed lines below the cursor
         for (i = term.rows - destroy; i < term.rows; i++)
             freeline(lines[i]);
-    
+
         // Adjust cursor position
         curs->y = MAX(0, curs->y - store);
         saved_curs->y = MAX(0, saved_curs->y - store);
     }
 
     term.lines = lines = mintty_renewn(lines, newrows);
-  
+
     // Expand the screen if newrows > rows
     if (newrows > term.rows) {
         int added = newrows - term.rows;
         int restore = MIN(added, term.tempsblines);
         int create = added - restore;
-    
+
         // Fill bottom of screen with blank lines
         for (i = newrows - create; i < newrows; i++)
             lines[i] = newline(newcols, false);
-    
+
         // Move existing lines down
         memmove(lines + restore, lines, term.rows * sizeof(termline *));
-    
+
         // Restore lines from scrollback
         for (i = restore; i--;) {
             uchar *cline = scrollback_pop();
@@ -353,16 +353,16 @@ term_resize(int newrows, int newcols)
             line->temporary = false;  /* reconstituted line is now real */
             lines[i] = line;
         }
-    
+
         // Adjust cursor position
         curs->y += restore;
         saved_curs->y += restore;
     }
-  
+
     // Resize lines
     for (i = 0; i < newrows; i++)
         resizeline(lines[i], newcols);
-  
+
     // Make a new displayed text buffer.
     if (term.displines) {
         for (i = 0; i < term.rows; i++)
@@ -423,7 +423,7 @@ term_switch_screen(bool to_alt, bool reset)
     termlines *oldlines = term.lines;
     term.lines = term.other_lines;
     term.other_lines = oldlines;
-  
+
     if (to_alt && reset)
         term_erase(false, false, true, true);
 }
@@ -433,17 +433,17 @@ term_switch_screen(bool to_alt, bool reset)
  * only part of a line of text. It is used to mark the boundary
  * between two character positions, and it indicates that some sort
  * of effect is going to happen on only one side of that boundary.
- * 
+ *
  * The effect of this function is to check whether a CJK
  * double-width character is straddling the boundary, and to remove
  * it and replace it with two spaces if so. (Of course, one or
  * other of those spaces is then likely to be replaced with
  * something else again, as a result of whatever happens next.)
- * 
+ *
  * Also, if the boundary is at the right-hand _edge_ of the screen,
  * it implies something deliberate is being done to the rightmost
  * column position; hence we must clear LATTR_WRAPPED2.
- * 
+ *
  * The input to the function is the coordinates of the _second_
  * character of the pair.
  */
@@ -474,24 +474,24 @@ void
 term_do_scroll(int topline, int botline, int lines, bool sb)
 {
     assert(botline >= topline && lines != 0);
-  
+
     bool down = lines < 0; // Scrolling downwards?
     lines = abs(lines);    // Number of lines to scroll by
-  
+
     botline++; // One below the scroll region: easier to calculate with
-  
+
     // Don't try to scroll more than the number of lines in the scroll region.
     int lines_in_region = botline - topline;
     lines = MIN(lines, lines_in_region);
-  
+
     // Number of lines that are moved up or down as they are.
     // The rest are scrolled out of the region and replaced by empty lines.
     int moved_lines = lines_in_region - lines;
-  
+
     // Useful pointers to the top and (one below the) bottom lines.
     termline **top = term.lines + topline;
     termline **bot = term.lines + botline;
-  
+
     // Reuse lines that are being scrolled out of the scroll region,
     // clearing their content.
     termline *recycled[abs(lines)];
@@ -528,14 +528,14 @@ term_do_scroll(int topline, int botline, int lines, bool sb)
             int i;
             for (i = 0; i < lines; i++)
                 scrollback_push(compressline(term.lines[i]));
- 
+
             // Shift viewpoint accordingly if user is looking at scrollback
             if (term.disptop < 0)
                 term.disptop = MAX(term.disptop - lines, -term.sblines);
 
             seltop = -term.sblines;
         }
-    
+
         // Move up remaining lines and push in the recycled lines
         recycle(top);
         memmove(top, top + lines, moved_lines * sizeof(termline *));
@@ -574,7 +574,7 @@ term_erase(bool selective, bool line_only, bool from_begin, bool to_end)
         end = (pos){.y = line_only ? curs->y + 1 : term.rows, .x = 0};
     else
         end = (pos){.y = curs->y, .x = curs->x}, incpos(end);
-  
+
     if (!from_begin || !to_end)
         term_check_boundary(curs->x, curs->y);
 
@@ -650,7 +650,7 @@ term_paint(void)
             scrpos.x = backward ? backward[j] : j;
             wchar tchar = d->chr;
             uint tattr = d->attr;
-      
+
             /* Many Windows fonts don't have the Unicode hyphen, but groff
              * uses it for man pages, so display it as the ASCII version.
              */
@@ -661,7 +661,7 @@ term_paint(void)
                 tattr |= ATTR_WIDE;
 
             /* Video reversing things */
-            bool selected = 
+            bool selected =
                 term.selected &&
                 ( term.sel_rect
                   ? posPle(term.sel_start, scrpos) && posPlt(scrpos, term.sel_end)
@@ -678,7 +678,7 @@ term_paint(void)
             }
 
             /*
-             * Check the font we'll _probably_ be using to see if 
+             * Check the font we'll _probably_ be using to see if
              * the character is wide when we don't want it to be.
              */
             if (tchar != dispchars[j].chr ||
@@ -712,7 +712,7 @@ term_paint(void)
                 (!term.has_focus ? TATTR_PASCURS :
                  term.cblinker || !term_cursor_blinks() ? TATTR_ACTCURS : 0) |
                 (term.curs.wrapnext ? TATTR_RIGHTCURS : 0);
-      
+
             if (term.cursor_invalid)
                 dispchars[curs_x].attr |= ATTR_INVALID;
         }
@@ -720,7 +720,7 @@ term_paint(void)
         /*
          * Now loop over the line again, noting where things have
          * changed.
-         * 
+         *
          * During this loop, we keep track of where we last saw
          * DATTR_STARTRUN. Any mismatch automatically invalidates
          * _all_ of the containing run that was last printed: that

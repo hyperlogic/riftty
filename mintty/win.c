@@ -116,7 +116,13 @@ void win_update()
 /* void win_schedule_update(void); */
 void win_schedule_update(void)
 {
+    fprintf(stderr, "mintty: win_schedule_update()\n");
     win_clear_text();
+
+    // NOTE: because of the way rendering works with OpenGL we need to rebuild all the text
+    // when anything changes, it would be difficult to re-use the text from a previous frame.
+    term_invalidate(0, 0, cfg.rows, cfg.cols);
+
     term_paint();
 }
 
