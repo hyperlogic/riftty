@@ -187,6 +187,21 @@ void win_schedule_update(void)
     term_paint();
 }
 
+// returns number of leading zeros
+// hacker's delight (first edition) page 78
+static int nlz(uint32_t x)
+{
+    if (x == 0)
+        return 32;
+    int n = 1;
+    if ((x >> 16) == 0) { n = n + 16; x = x << 16; }
+    if ((x >> 24) == 0) { n = n + 8; x = x << 8; }
+    if ((x >> 28) == 0) { n = n + 4; x = x << 4; }
+    if ((x >> 30) == 0) { n = n + 2; x = x << 2; }
+    n = n - (x >> 31);
+    return n;
+}
+
 /* void win_text(int x, int y, wchar *text, int len, uint attr, int lattr); */
 void win_text(int x, int y, wchar *text, int len, uint attr, int lattr)
 {
@@ -251,8 +266,36 @@ void win_text(int x, int y, wchar *text, int len, uint attr, int lattr)
     // AJT: TODO: HACK: convert each wchar to a char. lol unicode.
     int i;
     for (i = 0; i < len; i++)
-        s_temp[i] = (char)text[i];
+        s_temp[i] = ~0x80 & (uint8_t)text[i];  // mask off high bit.
     s_temp[len] = 0;
+
+    // attempt at doing ucs2 to utf8 conversion
+    /*
+    int i, temp_len = 0;
+    for (i = 0; i < len; i++) {
+        // encode wchars (ucs2) as utf-8 strings for GB_Text
+        int n = nlz((uint32_t)text[i]);
+        int num_bits_needed = (32 - n);
+        if (num_bits_needed <= 8) {
+            s_temp[temp_len++] = text[i];
+        } else if (num_bits_needed <= 11) {
+            // 110x_xxxx 10yy_yyyy
+            uint8_t x_bits = (0x07c0 & text[i]) >> 6;
+            uint8_t y_bits = (0x003f & text[i]);
+            s_temp[temp_len++] = 0xc0 | x_bits;
+            s_temp[temp_len++] = 0x80 | y_bits;
+        } else {
+            // 1110_xxxx 10yy_yyyy 10zz_zzzz
+            uint8_t x_bits = (0xf000 & text[i]) >> 12;
+            uint8_t y_bits = (0x0fc0 & text[i]) >> 6;
+            uint8_t z_bits = (0x003f & text[i]);
+            s_temp[temp_len++] = 0xe0 | x_bits;
+            s_temp[temp_len++] = 0x80 | y_bits;
+            s_temp[temp_len++] = 0x80 | z_bits;
+        }
+    }
+    s_temp[temp_len] = 0;
+    */
 
     //fprintf(stderr, "    -> %s\n", s_temp);
 
