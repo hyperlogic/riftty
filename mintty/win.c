@@ -1,4 +1,5 @@
 #include "win.h"
+#include "charset.h"
 #include "gb_context.h"
 #include "gb_font.h"
 #include "gb_text.h"
@@ -118,7 +119,9 @@ void win_init(void)
     }
 
     // create a monospace font
-    err = GB_FontMake(s_context.gb, "font/SourceCodePro-Bold.ttf", 14, GB_RENDER_NORMAL, GB_HINT_NONE, &s_context.font);
+    //err = GB_FontMake(s_context.gb, "font/SourceCodePro-Bold.ttf", 14, GB_RENDER_NORMAL, GB_HINT_NONE, &s_context.font);
+    //err = GB_FontMake(s_context.gb, "font/DejaVuSansMono.ttf", 14, GB_RENDER_NORMAL, GB_HINT_NONE, &s_context.font);
+    err = GB_FontMake(s_context.gb, "font/DejaVuSansMono-Bold.ttf", 14, GB_RENDER_NORMAL, GB_HINT_NONE, &s_context.font);
     if (err != GB_ERROR_NONE) {
         fprintf(stderr, "GB_MakeFont Error %s\n", GB_ErrorToString(err));
         exit(1);
@@ -263,41 +266,64 @@ void win_text(int x, int y, wchar *text, int len, uint attr, int lattr)
 
     assert(len < 4096);  // temp string overflow
 
-    // AJT: TODO: HACK: convert each wchar to a char. lol unicode.
-    int i;
-    for (i = 0; i < len; i++)
-        s_temp[i] = ~0x80 & (uint8_t)text[i];  // mask off high bit.
-    s_temp[len] = 0;
-
-    // attempt at doing ucs2 to utf8 conversion
-    /*
+    // convert text from utf16 into utf8 for gb_text
+    // TODO: what about bom?
     int i, temp_len = 0;
     for (i = 0; i < len; i++) {
-        // encode wchars (ucs2) as utf-8 strings for GB_Text
-        int n = nlz((uint32_t)text[i]);
+
+        uint32_t cp;
+        if (is_high_surrogate(text[i])) {
+            cp = combine_surrogates(text[i], text[i+1]);
+            i++; // skip low surrogate
+        } else {
+            assert(!is_low_surrogate(text[i]));
+            cp = text[i];
+        }
+
+        // encode cp as utf8
+        int n = nlz(cp);
         int num_bits_needed = (32 - n);
-        if (num_bits_needed <= 8) {
+        if (num_bits_needed < 8) {
             s_temp[temp_len++] = text[i];
-        } else if (num_bits_needed <= 11) {
+        } else if (num_bits_needed < 11) {
             // 110x_xxxx 10yy_yyyy
-            uint8_t x_bits = (0x07c0 & text[i]) >> 6;
-            uint8_t y_bits = (0x003f & text[i]);
+            uint8_t x_bits = (0x07c0UL & cp) >> 6;
+            uint8_t y_bits = (0x003fUL & cp);
             s_temp[temp_len++] = 0xc0 | x_bits;
             s_temp[temp_len++] = 0x80 | y_bits;
-        } else {
+        } else if (num_bits_needed < 16) {
             // 1110_xxxx 10yy_yyyy 10zz_zzzz
-            uint8_t x_bits = (0xf000 & text[i]) >> 12;
-            uint8_t y_bits = (0x0fc0 & text[i]) >> 6;
-            uint8_t z_bits = (0x003f & text[i]);
+            uint8_t x_bits = (0xf000UL & cp) >> 12;
+            uint8_t y_bits = (0x0fc0UL & cp) >> 6;
+            uint8_t z_bits = (0x003fUL & cp);
             s_temp[temp_len++] = 0xe0 | x_bits;
             s_temp[temp_len++] = 0x80 | y_bits;
             s_temp[temp_len++] = 0x80 | z_bits;
+        } else {
+            // 1111_0xxx 10yy_yyyy 10zz_zzzz 10ww_wwww
+            uint8_t x_bits = (0x1c0000UL & cp) >> 18;
+            uint8_t y_bits = (0x03f000UL & cp) >> 12;
+            uint8_t z_bits = (0x000fc0UL & cp) >> 6;
+            uint8_t w_bits = (0x00003fUL & cp);
+            s_temp[temp_len++] = 0xf0 | x_bits;
+            s_temp[temp_len++] = 0xe0 | y_bits;
+            s_temp[temp_len++] = 0x80 | z_bits;
+            s_temp[temp_len++] = 0x80 | w_bits;
         }
     }
     s_temp[temp_len] = 0;
-    */
+    assert(temp_len < 4096); // temp string overflow.
 
     //fprintf(stderr, "    -> %s\n", s_temp);
+
+    // dump utf8 string
+    /*
+    fprintf(stderr, "s_temp = ");
+    for (i = 0; i < temp_len; i++) {
+        fprintf(stderr, "0x%x ", (uint8_t)s_temp[i]);
+    }
+    fprintf(stderr, "\n");
+    */
 
     // allocate a new text object!
     uint32_t pixel_x = x * s_context.max_advance;
@@ -311,7 +337,7 @@ void win_text(int x, int y, wchar *text, int len, uint attr, int lattr)
     data->max_advance = s_context.max_advance;
     data->line_height = s_context.line_height;
     GB_ERROR err = GB_TextMake(s_context.gb, (uint8_t*)s_temp, s_context.font, data, origin, size,
-                               GB_HORIZONTAL_ALIGN_LEFT, GB_VERTICAL_ALIGN_TOP, &gb_text);
+                               GB_HORIZONTAL_ALIGN_LEFT, GB_VERTICAL_ALIGN_TOP, GB_TEXT_OPTION_DISABLE_SHAPING, &gb_text);
     if (err != GB_ERROR_NONE) {
         fprintf(stderr, "GB_TextMake Error %s\n", GB_ErrorToString(err));
         exit(1);

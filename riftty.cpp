@@ -111,7 +111,7 @@ int main(int argc, char* argv[])
     cs_init();  // TODO: code pages do not want
 
     // TODO: determine this based on window-size & font-size or vice versa.
-    cfg.rows = 42;
+    cfg.rows = 47;
     cfg.cols = 127;
 
     // TODO: load config from /etc/riffty or ~/.rifttyrc
