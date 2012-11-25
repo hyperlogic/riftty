@@ -190,12 +190,50 @@ void win_schedule_update(void)
 /* void win_text(int x, int y, wchar *text, int len, uint attr, int lattr); */
 void win_text(int x, int y, wchar *text, int len, uint attr, int lattr)
 {
-    int fg_color = (attr & ATTR_FGMASK) >> ATTR_FGSHIFT;
-    int bg_color = (attr & ATTR_BGMASK) >> ATTR_BGSHIFT;
+    int fgi = (attr & ATTR_FGMASK) >> ATTR_FGSHIFT;
+    int bgi = (attr & ATTR_BGMASK) >> ATTR_BGSHIFT;
+
+    if (term.rvideo) {
+        if (fgi >= 256)
+            fgi ^= 2;
+        if (bgi >= 256)
+            bgi ^= 2;
+    }
+    if (attr & ATTR_BOLD && cfg.bold_as_colour) {
+        if (fgi < 8)
+            fgi |= 8;
+        else if (fgi >= 256 && !cfg.bold_as_font)
+            fgi |= 1;
+    }
+    if (attr & ATTR_BLINK) {
+        if (bgi < 8)
+            bgi |= 8;
+        else if (bgi >= 256)
+            bgi |= 1;
+    }
 
     bool is_cursor = (attr & (TATTR_ACTCURS | TATTR_PASCURS)) != 0;
 
-    //fprintf(stderr, "mintty: win_text() x = %d, y = %d, text = %p, len = %d, attr = 0x%x, lattr = 0x%x, fg_color = %d, bg_color = %d\n", x, y, text, len, attr, lattr, fg_color, bg_color);
+    uint32_t fg_color = s_ansi_colors[fgi];
+    uint32_t bg_color = s_ansi_colors[bgi];
+
+    if (attr & ATTR_DIM) {
+        fg_color = (fg_color & 0xFEFEFEFE) >> 1; // Halve the brightness.
+        if (!cfg.bold_as_colour || fgi >= 256)
+            fg_color += (bg_color & 0xFEFEFEFE) >> 1; // Blend with background.
+    }
+    if (attr & ATTR_REVERSE) {
+        uint32_t temp = fg_color; fg_color = bg_color; bg_color = temp;
+    }
+    if (attr & ATTR_INVISIBLE)
+        fg_color = bg_color;
+
+    if (is_cursor) {
+        bg_color = s_ansi_colors[CURSOR_COLOUR_I];
+        fg_color = s_ansi_colors[CURSOR_TEXT_COLOUR_I];
+    }
+
+    //fprintf(stderr, "mintty: win_text() x = %d, y = %d, text = %p, len = %d, attr = 0x%x, lattr = 0x%x, fgi = %d, bgi = %d\n", x, y, text, len, attr, lattr, fgi, bgi);
 
     // realloc text ptrs, if necessary
     if (s_context.textCount == s_context.textCapacity)
@@ -216,18 +254,7 @@ void win_text(int x, int y, wchar *text, int len, uint attr, int lattr)
         s_temp[i] = (char)text[i];
     s_temp[len] = 0;
 
-    // AJT: TODO: HACK: for cursor
-    if (is_cursor && len == 1)
-    {
-        // replace with utf8 encoded full-block character U+2588
-        // 0xE2 0x96 0x88
-        s_temp[0] = 0xE2;
-        s_temp[1] = 0x96;
-        s_temp[2] = 0x88;
-        s_temp[3] = 0;
-    }
-
-    //fprintf(stderr, "    -> %s\n", s_temp + ii);
+    //fprintf(stderr, "    -> %s\n", s_temp);
 
     // allocate a new text object!
     uint32_t pixel_x = x * s_context.max_advance;
@@ -236,8 +263,10 @@ void win_text(int x, int y, wchar *text, int len, uint attr, int lattr)
     uint32_t size[2] = {10000, 10000};
     struct GB_Text* gb_text = NULL;
     struct WIN_TextUserData* data = malloc(sizeof(struct WIN_TextUserData));
-    data->fg_color = s_ansi_colors[fg_color];
-    data->bg_color = s_ansi_colors[bg_color];
+    data->fg_color = fg_color;
+    data->bg_color = bg_color;
+    data->max_advance = s_context.max_advance;
+    data->line_height = s_context.line_height;
     GB_ERROR err = GB_TextMake(s_context.gb, (uint8_t*)s_temp, s_context.font, data, origin, size,
                                GB_HORIZONTAL_ALIGN_LEFT, GB_VERTICAL_ALIGN_TOP, &gb_text);
     if (err != GB_ERROR_NONE) {

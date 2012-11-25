@@ -45,6 +45,7 @@ const config default_cfg = {
   .zoom_shortcuts = true,
   .alt_fn_shortcuts = true,
   .ctrl_shift_shortcuts = false,
+  .swap_alt_and_meta_keys = true,
   // Mouse
   .copy_on_select = true,
   .copy_as_rtf = true,
@@ -152,6 +153,7 @@ options[] = {
   {"ZoomShortcuts", OPT_BOOL, offcfg(zoom_shortcuts)},
   {"AltFnShortcuts", OPT_BOOL, offcfg(alt_fn_shortcuts)},
   {"CtrlShiftShortcuts", OPT_BOOL, offcfg(ctrl_shift_shortcuts)},
+  {"SwapAltAndMetaKeys", OPT_BOOL, offcfg(swap_alt_and_meta_keys)},
 
   // Mouse
   {"CopyOnSelect", OPT_BOOL, offcfg(copy_on_select)},

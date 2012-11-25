@@ -23,6 +23,8 @@ extern "C" {
 #include "win.h"
 }
 
+Vector4f s_clearColor(0, 0, 0, 1);
+
 // time tracking
 unsigned int s_ticks = 0;
 
@@ -33,8 +35,7 @@ void Process(float dt)
 
 void Render()
 {
-    Vector4f clearColor(0, 0, 0, 1);
-    glClearColor(clearColor.x, clearColor.y, clearColor.z, clearColor.w);
+    glClearColor(s_clearColor.x, s_clearColor.y, s_clearColor.z, s_clearColor.w);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
     for (size_t i = 0; i < s_context.textCount; i++)
@@ -97,9 +98,8 @@ int main(int argc, char* argv[])
         exit(2);
     }
 
-    // clear to black
-    Vector4f clearColor(0, 0, 0, 1);
-    glClearColor(clearColor.x, clearColor.y, clearColor.z, clearColor.w);
+    // clear
+    glClearColor(s_clearColor.x, s_clearColor.y, s_clearColor.z, s_clearColor.w);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     SDL_GL_SwapBuffers();
 
@@ -112,7 +112,7 @@ int main(int argc, char* argv[])
 
     // TODO: determine this based on window-size & font-size or vice versa.
     cfg.rows = 42;
-    cfg.cols = 124;
+    cfg.cols = 127;
 
     // TODO: load config from /etc/riffty or ~/.rifttyrc
     finish_config();
@@ -125,6 +125,7 @@ int main(int argc, char* argv[])
     term_reset();
     term_resize(cfg.rows, cfg.cols);
 
+    // TODO:
     int font_width = 10;
     int font_height = 10;
     int term_width = font_width * cfg.cols;

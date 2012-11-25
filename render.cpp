@@ -3,6 +3,32 @@
 #include "appconfig.h"
 #include "win.h"
 
+void DrawUntexturedQuad(Vector2f const& origin, Vector2f const& size, uint32_t color)
+{
+    float verts[8];
+    verts[0] = origin.x;
+    verts[1] = origin.y;
+    verts[2] = origin.x + size.x;
+    verts[3] = origin.y;
+    verts[4] = origin.x;
+    verts[5] = origin.y + size.y;
+    verts[6] = origin.x + size.x;
+    verts[7] = origin.y + size.y;
+
+    glVertexPointer(2, GL_FLOAT, 0, verts);
+    glEnableClientState(GL_VERTEX_ARRAY);
+
+    uint32_t colors[8];
+    for (int i = 0; i < 8; i++)
+        colors[i] = color;
+
+    glEnableClientState(GL_COLOR_ARRAY);
+    glColorPointer(4, GL_UNSIGNED_BYTE, 0, colors);
+
+    static uint16_t indices[] = {0, 2, 1, 2, 3, 1};
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, indices);
+}
+
 void DrawTexturedQuad(uint32_t gl_tex, Vector2f const& origin, Vector2f const& size,
                       Vector2f const& uv_origin, Vector2f const& uv_size,
                       uint32_t color)
@@ -50,7 +76,6 @@ void DrawTexturedQuad(uint32_t gl_tex, Vector2f const& origin, Vector2f const& s
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, indices);
 }
 
-
 void TextRenderFunc(GB_GlyphQuad* quads, uint32_t num_quads)
 {
     // note this flips y-axis so y is down.
@@ -68,6 +93,7 @@ void TextRenderFunc(GB_GlyphQuad* quads, uint32_t num_quads)
 
         if (count == 0) {
             printf("quad[%d]\n", i);
+            printf("    pen = [%d, %d]\n", quads[i].pen[0], quads[i].pen[1]);
             printf("    origin = [%d, %d]\n", quads[i].origin[0], quads[i].origin[1]);
             printf("    size = [%d, %d]\n", quads[i].size[0], quads[i].size[1]);
             printf("    uv_origin = [%.3f, %.3f]\n", quads[i].uv_origin[0], quads[i].uv_origin[1]);
@@ -78,12 +104,20 @@ void TextRenderFunc(GB_GlyphQuad* quads, uint32_t num_quads)
 
         const WIN_TextUserData* data = (const WIN_TextUserData*)quads[i].user_data;
 
-        DrawTexturedQuad(quads[i].gl_tex_obj,
-                         Vector2f(quads[i].origin[0], quads[i].origin[1]),
-                         Vector2f(quads[i].size[0], quads[i].size[1]),
-                         Vector2f(quads[i].uv_origin[0], quads[i].uv_origin[1]),
-                         Vector2f(quads[i].uv_size[0], quads[i].uv_size[1]),
-                         data->fg_color);
+        glDisable(GL_TEXTURE_2D);
+        uint32_t y_offset = data->line_height / 3; // hack
+        DrawUntexturedQuad(Vector2f(quads[i].pen[0], quads[i].pen[1] + y_offset), Vector2f(data->max_advance, -(float)data->line_height), data->bg_color);
+
+        if (quads[i].size[0] > 0 & quads[i].size[1] > 0)
+        {
+            glEnable(GL_TEXTURE_2D);
+            DrawTexturedQuad(quads[i].gl_tex_obj,
+                             Vector2f(quads[i].origin[0], quads[i].origin[1]),
+                             Vector2f(quads[i].size[0], quads[i].size[1]),
+                             Vector2f(quads[i].uv_origin[0], quads[i].uv_origin[1]),
+                             Vector2f(quads[i].uv_size[0], quads[i].uv_size[1]),
+                             data->fg_color);
+        }
     }
 
     count++;

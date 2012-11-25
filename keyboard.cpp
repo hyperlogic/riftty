@@ -173,8 +173,13 @@ void ProcessKeyEvent(SDL_KeyboardEvent* key)
     ModState mod_state;
     mod_state.numlock = (mod & KMOD_NUM) != 0;
     mod_state.shift = (mod & (KMOD_LSHIFT | KMOD_RSHIFT)) != 0;
-    mod_state.lalt = (mod & KMOD_LALT) != 0;
-    mod_state.ralt = (mod & KMOD_RALT) != 0;
+    if (cfg.swap_alt_and_meta_keys) {
+        mod_state.lalt = (mod & KMOD_LMETA) != 0;
+        mod_state.ralt = (mod & KMOD_RMETA) != 0;
+    } else {
+        mod_state.lalt = (mod & KMOD_LALT) != 0;
+        mod_state.ralt = (mod & KMOD_RALT) != 0;
+    }
     mod_state.alt = mod_state.lalt || mod_state.ralt;
     mod_state.lctrl = (mod & KMOD_LCTRL) != 0;
     mod_state.rctrl = (mod & KMOD_RCTRL) != 0;
@@ -319,12 +324,16 @@ void ProcessKeyEvent(SDL_KeyboardEvent* key)
             break;
         case SDLK_LSHIFT:
         case SDLK_RSHIFT:
+            break;
         case SDLK_LCTRL:
         case SDLK_RCTRL:
+            break;
         case SDLK_LALT:
         case SDLK_RALT:
+            break;
         case SDLK_LMETA:
         case SDLK_RMETA:
+            break;
         case SDLK_LSUPER:
         case SDLK_RSUPER:
             break;

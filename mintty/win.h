@@ -8,6 +8,8 @@ struct WIN_TextUserData
 {
     uint32_t fg_color;
     uint32_t bg_color;
+    uint32_t max_advance;
+    uint32_t line_height;
 };
 
 struct WIN_Context {
