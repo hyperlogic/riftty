@@ -198,7 +198,6 @@ child_poll(void)
         if (term.paste_buffer)
             term_send_paste();
 
-        fprintf(stderr, "before read!\n");
 
         static char buf[4096];
         int len = read(pty_fd, buf, sizeof buf);
@@ -206,7 +205,6 @@ child_poll(void)
         if (len == -1) {
             fprintf(stderr, "mintty: after read, pty_ft = %d, error = %s\n", pty_fd, strerror(errno));
         } else if (len > 0) {
-            fprintf(stderr, "mintty: after read, len = %d bytes\n", len);
             term_write(buf, len);
             if (log_fd >= 0)
                 write(log_fd, buf, len);

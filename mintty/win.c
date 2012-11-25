@@ -168,13 +168,13 @@ void win_reconfig(void)
 /* void win_update(void); */
 void win_update()
 {
-    fprintf(stderr, "mintty: win_update()\n");
+    ;
 }
 
 /* void win_schedule_update(void); */
 void win_schedule_update(void)
 {
-    fprintf(stderr, "mintty: win_schedule_update()\n");
+    //fprintf(stderr, "mintty: win_schedule_update()\n");
     win_clear_text();
 
     // NOTE: because of the way rendering works with OpenGL we need to rebuild all the text

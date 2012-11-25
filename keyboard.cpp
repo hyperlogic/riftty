@@ -330,7 +330,6 @@ void ProcessKeyEvent(SDL_KeyboardEvent* key)
             break;
         default: {
             if (mod_state.ctrl) {
-                fprintf(stderr, "AJT: CTRL %c\n", ascii);
                 ctrl_ch(mod_state, CTRL(ascii));
             } else {
                 esc_if(mod_state.alt);
