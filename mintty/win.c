@@ -5,6 +5,8 @@
 
 enum {LDRAW_CHAR_NUM = 31, LDRAW_CHAR_TRIES = 4};
 
+// TODO: REMOVE nobody appears to use linedraw_chars
+
 // VT100 linedraw character mappings for current font.
 wchar win_linedraw_chars[LDRAW_CHAR_NUM];
 
@@ -46,9 +48,65 @@ static const wchar linedraw_chars[LDRAW_CHAR_NUM][LDRAW_CHAR_TRIES] = {
 
 struct WIN_Context s_context;
 char s_temp[4096];
+uint32_t s_ansi_colors[COLOUR_NUM];
+
+static uint32_t MakeColor(uint8_t red, uint8_t green, uint8_t blue)
+{
+    uint8_t alpha = 255;
+    return alpha << 24 | blue << 16 | green << 8 | red;
+}
+
+static void init_colors(void)
+{
+    // from http://en.wikipedia.org/wiki/ANSI_escape_code for terminal.app
+    s_ansi_colors[BLACK_I] = MakeColor(0, 0, 0);
+    s_ansi_colors[RED_I] = MakeColor(194, 54, 33);
+    s_ansi_colors[GREEN_I] = MakeColor(37, 188, 36);
+    s_ansi_colors[YELLOW_I] = MakeColor(173, 173, 39);
+    s_ansi_colors[BLUE_I] = MakeColor(73, 46, 225);
+    s_ansi_colors[MAGENTA_I] = MakeColor(211, 56, 211);
+    s_ansi_colors[CYAN_I] = MakeColor(51, 187, 200);
+    s_ansi_colors[WHITE_I] = MakeColor(203, 204, 205);
+
+    s_ansi_colors[BOLD_BLACK_I] = MakeColor(129, 131, 131);
+    s_ansi_colors[BOLD_RED_I] = MakeColor(252,57,31);
+    s_ansi_colors[BOLD_GREEN_I] = MakeColor(49, 231, 34);
+    s_ansi_colors[BOLD_YELLOW_I] = MakeColor(234, 236, 35);
+    s_ansi_colors[BOLD_BLUE_I] = MakeColor(88, 51, 255);
+    s_ansi_colors[BOLD_MAGENTA_I] = MakeColor(249, 53, 248);
+    s_ansi_colors[BOLD_CYAN_I] = MakeColor(20, 240, 240);
+    s_ansi_colors[BOLD_WHITE_I] = MakeColor(233, 235, 235);
+
+    int r, g, b;
+    for (r = 0; r < 16; r++) {
+        for (g = 0; g < 16; g++) {
+            for (b = 0; b < 16; b++) {
+                s_ansi_colors[36 * r + 6 * g + b + 16] = MakeColor(r * 17, g * 17, b * 17);
+            }
+        }
+    }
+
+    int i;
+    for (i = 0; i < 23; i++) {
+        uint8_t intensity = (uint8_t)((i + 1) * (255.0f / 24.0f));
+        s_ansi_colors[232 + i] = MakeColor(intensity, intensity, intensity);
+    }
+
+    s_ansi_colors[FG_COLOUR_I] = s_ansi_colors[WHITE_I];
+    s_ansi_colors[BOLD_FG_COLOUR_I] = s_ansi_colors[BOLD_WHITE_I];
+
+    s_ansi_colors[BG_COLOUR_I] = s_ansi_colors[BLACK_I];
+    s_ansi_colors[BOLD_BG_COLOUR_I] = s_ansi_colors[BOLD_BLACK_I];
+
+    s_ansi_colors[CURSOR_TEXT_COLOUR_I] = MakeColor(0, 0, 0);
+    s_ansi_colors[CURSOR_COLOUR_I] = MakeColor(255, 255, 255);
+    s_ansi_colors[IME_CURSOR_COLOUR_I] = MakeColor(255, 255, 255);
+}
 
 void win_init(void)
 {
+    init_colors();
+
     memset(&s_context, 0, sizeof(struct WIN_Context));
 
     // create the glyphblaster context
@@ -131,6 +189,9 @@ void win_text(int x, int y, wchar *text, int len, uint attr, int lattr)
 {
     //fprintf(stderr, "mintty: win_text() x = %d, y = %d, text = %p, len = %d, attr = %u, lattr = %d\n", x, y, text, len, attr, lattr);
 
+    int fg_color = (attr & ATTR_FGMASK) >> ATTR_FGSHIFT;
+    int bg_color = (attr & ATTR_BGMASK) >> ATTR_BGSHIFT;
+
     // realloc text ptrs, if necessary
     if (s_context.textCount == s_context.textCapacity)
     {
@@ -164,7 +225,7 @@ void win_text(int x, int y, wchar *text, int len, uint attr, int lattr)
     uint32_t origin[2] = {0, 0};
     uint32_t size[2] = {1000, 1000};
     struct GB_Text* gb_text = NULL;
-    GB_ERROR err = GB_TextMake(s_context.gb, (uint8_t*)s_temp, s_context.font, 0xffffffff, origin, size,
+    GB_ERROR err = GB_TextMake(s_context.gb, (uint8_t*)s_temp, s_context.font, s_ansi_colors[fg_color], origin, size,
                                GB_HORIZONTAL_ALIGN_LEFT, GB_VERTICAL_ALIGN_TOP, &gb_text);
     if (err != GB_ERROR_NONE) {
         fprintf(stderr, "GB_TextMake Error %s\n", GB_ErrorToString(err));
