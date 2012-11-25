@@ -4,6 +4,12 @@
 #include "term.h"
 #include <stdint.h>
 
+struct WIN_TextUserData
+{
+    uint32_t fg_color;
+    uint32_t bg_color;
+};
+
 struct WIN_Context {
     struct GB_Context *gb;
     struct GB_Font *font;

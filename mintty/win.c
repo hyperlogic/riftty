@@ -235,7 +235,10 @@ void win_text(int x, int y, wchar *text, int len, uint attr, int lattr)
     uint32_t origin[2] = {pixel_x, pixel_y};
     uint32_t size[2] = {10000, 10000};
     struct GB_Text* gb_text = NULL;
-    GB_ERROR err = GB_TextMake(s_context.gb, (uint8_t*)s_temp, s_context.font, s_ansi_colors[fg_color], origin, size,
+    struct WIN_TextUserData* data = malloc(sizeof(struct WIN_TextUserData));
+    data->fg_color = s_ansi_colors[fg_color];
+    data->bg_color = s_ansi_colors[bg_color];
+    GB_ERROR err = GB_TextMake(s_context.gb, (uint8_t*)s_temp, s_context.font, data, origin, size,
                                GB_HORIZONTAL_ALIGN_LEFT, GB_VERTICAL_ALIGN_TOP, &gb_text);
     if (err != GB_ERROR_NONE) {
         fprintf(stderr, "GB_TextMake Error %s\n", GB_ErrorToString(err));

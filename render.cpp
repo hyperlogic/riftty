@@ -1,6 +1,7 @@
 #include "render.h"
 #include "opengl.h"
 #include "appconfig.h"
+#include "win.h"
 
 void DrawTexturedQuad(uint32_t gl_tex, Vector2f const& origin, Vector2f const& size,
                       Vector2f const& uv_origin, Vector2f const& uv_size,
@@ -72,15 +73,17 @@ void TextRenderFunc(GB_GlyphQuad* quads, uint32_t num_quads)
             printf("    uv_origin = [%.3f, %.3f]\n", quads[i].uv_origin[0], quads[i].uv_origin[1]);
             printf("    uv_size = [%.3f, %.3f]\n", quads[i].uv_size[0], quads[i].uv_size[1]);
             printf("    gl_tex_obj = %u\n", quads[i].gl_tex_obj);
-            printf("    color = 0x%x\n", quads[i].color);
+            printf("    user_data = %p\n", quads[i].user_data);
         }
+
+        const WIN_TextUserData* data = (const WIN_TextUserData*)quads[i].user_data;
 
         DrawTexturedQuad(quads[i].gl_tex_obj,
                          Vector2f(quads[i].origin[0], quads[i].origin[1]),
                          Vector2f(quads[i].size[0], quads[i].size[1]),
                          Vector2f(quads[i].uv_origin[0], quads[i].uv_origin[1]),
                          Vector2f(quads[i].uv_size[0], quads[i].uv_size[1]),
-                         quads[i].color);
+                         data->fg_color);
     }
 
     count++;
