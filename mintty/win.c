@@ -187,10 +187,12 @@ void win_schedule_update(void)
 /* void win_text(int x, int y, wchar *text, int len, uint attr, int lattr); */
 void win_text(int x, int y, wchar *text, int len, uint attr, int lattr)
 {
-    //fprintf(stderr, "mintty: win_text() x = %d, y = %d, text = %p, len = %d, attr = %u, lattr = %d\n", x, y, text, len, attr, lattr);
-
     int fg_color = (attr & ATTR_FGMASK) >> ATTR_FGSHIFT;
     int bg_color = (attr & ATTR_BGMASK) >> ATTR_BGSHIFT;
+
+    bool is_cursor = (attr & (TATTR_ACTCURS | TATTR_PASCURS)) != 0;
+
+    //fprintf(stderr, "mintty: win_text() x = %d, y = %d, text = %p, len = %d, attr = 0x%x, lattr = 0x%x, fg_color = %d, bg_color = %d\n", x, y, text, len, attr, lattr, fg_color, bg_color);
 
     // realloc text ptrs, if necessary
     if (s_context.textCount == s_context.textCapacity)
@@ -214,10 +216,21 @@ void win_text(int x, int y, wchar *text, int len, uint attr, int lattr)
     assert(ii < 2048);  // s_temp overflow!
     assert(ii + len < 2048);  // s_temp overflow
 
-    // HACK: convert each wchar to a char. fuck unicode.
+    // AJT: TODO: HACK: convert each wchar to a char. fuck unicode.
     for (i = 0; i < len; i++)
         s_temp[ii + i] = (char)text[i];
     s_temp[ii + len] = 0;
+
+    // AJT: TODO: HACK: for cursor
+    if (is_cursor && len == 1)
+    {
+        // replace with utf8 encoded full-block character U+2588
+        // 0xE2 0x96 0x88
+        s_temp[ii] = 0xE2;
+        s_temp[ii+1] = 0x96;
+        s_temp[ii+2] = 0x88;
+        s_temp[ii+3] = 0;
+    }
 
     //fprintf(stderr, "    -> %s\n", s_temp + ii);
 
