@@ -2,6 +2,7 @@
 #define WIN_H
 
 #include "term.h"
+#include <stdint.h>
 
 struct WIN_Context {
     struct GB_Context *gb;
@@ -9,6 +10,8 @@ struct WIN_Context {
     struct GB_Text **text;
     size_t textCapacity;
     size_t textCount;
+    uint32_t max_advance;
+    uint32_t line_height;
 };
 
 extern struct WIN_Context s_context;

@@ -124,6 +124,9 @@ void win_init(void)
         exit(1);
     }
 
+    GB_FontGetMaxAdvance(s_context.gb, s_context.font, &s_context.max_advance);
+    GB_FontGetLineHeight(s_context.gb, s_context.font, &s_context.line_height);
+
     // start off with with 4 text ptrs
     s_context.text = malloc(sizeof(struct GB_Text*) * 4);
     s_context.textCapacity = 4;
@@ -205,38 +208,32 @@ void win_text(int x, int y, wchar *text, int len, uint attr, int lattr)
     // we append the string with the appropriate amount of newlines and spaces.
     // use s_temp to build string
 
-    // fill up s_indent string prefix string.
-    int ii = 0;
+    assert(len < 4096);  // temp string overflow
+
+    // AJT: TODO: HACK: convert each wchar to a char. lol unicode.
     int i;
-    for (i = 0; i < y; i++)
-        s_temp[ii++] = '\n';
-    for (i = 0; i < x; i++)
-        s_temp[ii++] = ' ';
-
-    assert(ii < 2048);  // s_temp overflow!
-    assert(ii + len < 2048);  // s_temp overflow
-
-    // AJT: TODO: HACK: convert each wchar to a char. fuck unicode.
     for (i = 0; i < len; i++)
-        s_temp[ii + i] = (char)text[i];
-    s_temp[ii + len] = 0;
+        s_temp[i] = (char)text[i];
+    s_temp[len] = 0;
 
     // AJT: TODO: HACK: for cursor
     if (is_cursor && len == 1)
     {
         // replace with utf8 encoded full-block character U+2588
         // 0xE2 0x96 0x88
-        s_temp[ii] = 0xE2;
-        s_temp[ii+1] = 0x96;
-        s_temp[ii+2] = 0x88;
-        s_temp[ii+3] = 0;
+        s_temp[0] = 0xE2;
+        s_temp[1] = 0x96;
+        s_temp[2] = 0x88;
+        s_temp[3] = 0;
     }
 
     //fprintf(stderr, "    -> %s\n", s_temp + ii);
 
     // allocate a new text object!
-    uint32_t origin[2] = {0, 0};
-    uint32_t size[2] = {1000, 1000};
+    uint32_t pixel_x = x * s_context.max_advance;
+    uint32_t pixel_y = y * s_context.line_height;
+    uint32_t origin[2] = {pixel_x, pixel_y};
+    uint32_t size[2] = {10000, 10000};
     struct GB_Text* gb_text = NULL;
     GB_ERROR err = GB_TextMake(s_context.gb, (uint8_t*)s_temp, s_context.font, s_ansi_colors[fg_color], origin, size,
                                GB_HORIZONTAL_ALIGN_LEFT, GB_VERTICAL_ALIGN_TOP, &gb_text);
