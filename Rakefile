@@ -51,6 +51,7 @@ $OBJECTS = ['darwin/SDLMain.o',
             'riftty.o',
             'pty.o',
             'keyboard.o',
+            'joystick.o',
             'render.o',
             'appconfig.o',
 
@@ -91,7 +92,7 @@ def compile obj, src
 end
 
 # Link all the object files to create the exe
-def link exe, objects
+def do_link exe, objects
   sh "gcc #{objects.join ' '} -o #{exe} #{$L_FLAGS.join ' '}"
 end
 
@@ -125,8 +126,11 @@ task :add_deps => $DEPS do
   end
 end
 
-file $EXE => [:add_deps] + $OBJECTS do
-  link $EXE, $OBJECTS
+file :build_objs => $OBJECTS do
+end
+
+file $EXE => [:add_deps, :build_objs] do
+  do_link $EXE, $OBJECTS
 end
 
 task :build => $EXE
