@@ -100,7 +100,7 @@ static void init_colors(void)
     s_ansi_colors[BOLD_BG_COLOUR_I] = s_ansi_colors[BOLD_BLACK_I];
 
     s_ansi_colors[CURSOR_TEXT_COLOUR_I] = MakeColor(0, 0, 0);
-    s_ansi_colors[CURSOR_COLOUR_I] = MakeColor(255, 255, 255);
+    s_ansi_colors[CURSOR_COLOUR_I] = MakeColor(233, 235, 235);
     s_ansi_colors[IME_CURSOR_COLOUR_I] = MakeColor(255, 255, 255);
 }
 
@@ -119,9 +119,10 @@ void win_init(void)
     }
 
     // create a monospace font
-    //err = GB_FontMake(s_context.gb, "font/SourceCodePro-Bold.ttf", 14, GB_RENDER_NORMAL, GB_HINT_NONE, &s_context.font);
+    //err = GB_FontMake(s_context.gb, "font/SourceCodePro-Bold.ttf", 12, GB_RENDER_NORMAL, GB_HINT_DEFAULT, &s_context.font);
     //err = GB_FontMake(s_context.gb, "font/DejaVuSansMono.ttf", 14, GB_RENDER_NORMAL, GB_HINT_NONE, &s_context.font);
     err = GB_FontMake(s_context.gb, "font/DejaVuSansMono-Bold.ttf", 14, GB_RENDER_NORMAL, GB_HINT_NONE, &s_context.font);
+    //err = GB_FontMake(s_context.gb, "font/Courier New.ttf", 14, GB_RENDER_NORMAL, GB_HINT_DEFAULT, &s_context.font);
     if (err != GB_ERROR_NONE) {
         fprintf(stderr, "GB_MakeFont Error %s\n", GB_ErrorToString(err));
         exit(1);
