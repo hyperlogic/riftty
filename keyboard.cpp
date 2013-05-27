@@ -15,47 +15,47 @@ void KeyboardInit()
 
 static char SymToAscii(int sym, int mod)
 {
-	if (sym < 128)
-	{
-		char ascii = sym;
-	    if (mod & KMOD_SHIFT)
-		{
-			if (ascii >= 'a' && ascii <= 'z')
-				ascii = 'A' + (ascii - 'a');
-			else
-			{
-				switch (ascii)
-				{
-					case '`': ascii = '~'; break;
-					case '1': ascii = '!'; break;
-					case '2': ascii = '@'; break;
-					case '3': ascii = '#'; break;
-					case '4': ascii = '$'; break;
-					case '5': ascii = '%'; break;
-					case '6': ascii = '^'; break;
-					case '7': ascii = '&'; break;
-					case '8': ascii = '*'; break;
-					case '9': ascii = '('; break;
-					case '0': ascii = ')'; break;
-					case '-': ascii = '_'; break;
-					case '=': ascii = '+'; break;
-					case '[': ascii = '{'; break;
-					case ']': ascii = '}'; break;
-					case '\\': ascii = '|'; break;
-					case ';': ascii = ':'; break;
-					case '\'': ascii = '\"'; break;
-					case ',': ascii = '<'; break;
-					case '.': ascii = '>'; break;
-					case '/': ascii = '?'; break;
-					default:
-					break;
-				}
-			}
-		}
-		return ascii;
-	}
+    if (sym < 128)
+    {
+        char ascii = sym;
+        if (mod & KMOD_SHIFT)
+        {
+            if (ascii >= 'a' && ascii <= 'z')
+                ascii = 'A' + (ascii - 'a');
+            else
+            {
+                switch (ascii)
+                {
+                case '`': ascii = '~'; break;
+                case '1': ascii = '!'; break;
+                case '2': ascii = '@'; break;
+                case '3': ascii = '#'; break;
+                case '4': ascii = '$'; break;
+                case '5': ascii = '%'; break;
+                case '6': ascii = '^'; break;
+                case '7': ascii = '&'; break;
+                case '8': ascii = '*'; break;
+                case '9': ascii = '('; break;
+                case '0': ascii = ')'; break;
+                case '-': ascii = '_'; break;
+                case '=': ascii = '+'; break;
+                case '[': ascii = '{'; break;
+                case ']': ascii = '}'; break;
+                case '\\': ascii = '|'; break;
+                case ';': ascii = ':'; break;
+                case '\'': ascii = '\"'; break;
+                case ',': ascii = '<'; break;
+                case '.': ascii = '>'; break;
+                case '/': ascii = '?'; break;
+                default:
+                    break;
+                }
+            }
+        }
+        return ascii;
+    }
 
-	return 0;
+    return 0;
 }
 
 struct ModState {
@@ -164,10 +164,10 @@ void ctrl_ch(ModState mod_state, uchar c)
 
 void ProcessKeyEvent(SDL_KeyboardEvent* key)
 {
-	bool down = (key->type == SDL_KEYDOWN);
-	int sym = key->keysym.sym;
-	int mod = key->keysym.mod;
-	char ascii = SymToAscii(sym, mod);
+    bool down = (key->type == SDL_KEYDOWN);
+    int sym = key->keysym.sym;
+    int mod = key->keysym.mod;
+    char ascii = SymToAscii(sym, mod);
 
     // init modState struct
     ModState mod_state;
@@ -185,7 +185,7 @@ void ProcessKeyEvent(SDL_KeyboardEvent* key)
     mod_state.rctrl = (mod & KMOD_RCTRL) != 0;
     mod_state.ctrl = mod_state.lctrl || mod_state.rctrl;
     mod_state.ctrl_lalt_altgr = cfg.ctrl_alt_is_altgr & mod_state.ctrl & mod_state.lalt & !mod_state.ralt,
-    mod_state.altgr = mod_state.ralt | mod_state.ctrl_lalt_altgr;
+        mod_state.altgr = mod_state.ralt | mod_state.ctrl_lalt_altgr;
     mod_state.mods = mod_state.shift * MDK_SHIFT | mod_state.alt * MDK_ALT | mod_state.ctrl * MDK_CTRL;
 
     if (down) {
@@ -242,18 +242,18 @@ void ProcessKeyEvent(SDL_KeyboardEvent* key)
         case SDLK_F15:
             // TODO:
             /*
-            if (term.vt220_keys && ctrl && VK_F3 <= key && key <= VK_F10)
-                key += 10, mods &= ~MDK_CTRL;
-            if (key <= VK_F4)
-                mod_ss3(key - VK_F1 + 'P');
-            else {
-                tilde_code(
-                    (uchar[]){
-                        15, 17, 18, 19, 20, 21, 23, 24, 25, 26,
-                            28, 29, 31, 32, 33, 34, 42, 43, 44, 45
-                            }[key - VK_F5]
-                    );
-            }
+              if (term.vt220_keys && ctrl && VK_F3 <= key && key <= VK_F10)
+              key += 10, mods &= ~MDK_CTRL;
+              if (key <= VK_F4)
+              mod_ss3(key - VK_F1 + 'P');
+              else {
+              tilde_code(
+              (uchar[]){
+              15, 17, 18, 19, 20, 21, 23, 24, 25, 26,
+              28, 29, 31, 32, 33, 34, 42, 43, 44, 45
+              }[key - VK_F5]
+              );
+              }
             */
             break;
         case SDLK_INSERT:

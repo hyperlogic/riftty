@@ -173,10 +173,10 @@ int main(int argc, char* argv[])
                 // joy pad press
                 break;
 
-			case SDL_KEYDOWN:
-			case SDL_KEYUP:
-				ProcessKeyEvent(&event.key);
-				break;
+            case SDL_KEYDOWN:
+            case SDL_KEYUP:
+                ProcessKeyEvent(&event.key);
+                break;
             }
         }
 
