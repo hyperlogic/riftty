@@ -24,6 +24,7 @@ extern "C" {
 }
 
 Vector4f s_clearColor(0, 0, 0, 1);
+Matrixf s_camera = Matrixf::LookAt(Vector3f(0, 3, 10), Vector3f(0, 0, 0), Vector3f(0, 1, 0));
 
 // time tracking
 unsigned int s_ticks = 0;

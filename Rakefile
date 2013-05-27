@@ -53,6 +53,7 @@ $OBJECTS = ['darwin/SDLMain.o',
             'keyboard.o',
             'joystick.o',
             'render.o',
+            'shader.o',
             'appconfig.o',
 
             # mintty
