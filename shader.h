@@ -15,6 +15,7 @@ public:
     int getUniformLoc(const std::string& uniformName) const;
     int getAttribLoc(const std::string& attribName) const;
     GLint getProgram() const;
+    void apply(Shader* prev) const;
     void dump() const;
 protected:
     void buildVarMaps();
@@ -36,6 +37,7 @@ protected:
     typedef std::map<const std::string, Var> VarMap;
     VarMap m_uniformVarMap;
     VarMap m_attribVarMap;
+    uint32_t m_attribLocMask;
 };
 
 #endif

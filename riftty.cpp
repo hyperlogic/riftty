@@ -14,6 +14,7 @@
 #include <sys/stat.h>
 
 #include "render.h"
+#include "shader.h"
 
 extern "C" {
 #include "config.h"
@@ -24,7 +25,8 @@ extern "C" {
 }
 
 Vector4f s_clearColor(0, 0, 0, 1);
-Matrixf s_camera = Matrixf::LookAt(Vector3f(0, 3, 10), Vector3f(0, 0, 0), Vector3f(0, 1, 0));
+
+//Matrixf s_camera = Matrixf::LookAt(Vector3f(0, 3, 10), Vector3f(0, 0, 0), Vector3f(0, 1, 0));
 
 // time tracking
 unsigned int s_ticks = 0;
@@ -103,6 +105,8 @@ int main(int argc, char* argv[])
     glClearColor(s_clearColor.x, s_clearColor.y, s_clearColor.z, s_clearColor.w);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     SDL_GL_SwapBuffers();
+
+    RenderInit();
 
     win_init();
 

@@ -107,7 +107,7 @@ bool Shader::compileAndLinkFromFiles(const std::string& vertShaderFilename,
     int vertShaderSize = _LoadFileToMemory(vertShaderFilename.c_str(), &vertShaderSource);
     if (vertShaderSize <= 0)
     {
-        fprintf(stderr, "Shader::compileAndLinkFromFiles() Failed to load vertex shader \"%s\"", vertShaderFilename.c_str());
+        fprintf(stderr, "Shader::compileAndLinkFromFiles() Failed to load vertex shader \"%s\"\n", vertShaderFilename.c_str());
         return false;
     }
 
@@ -115,14 +115,14 @@ bool Shader::compileAndLinkFromFiles(const std::string& vertShaderFilename,
     int fragShaderSize = _LoadFileToMemory(fragShaderFilename.c_str(), &fragShaderSource);
     if (fragShaderSize <= 0)
     {
-        fprintf(stderr, "Shader::compileAndLinkFromFiles() Failed to load fragment shader \"%s\"", fragShaderFilename.c_str());
+        fprintf(stderr, "Shader::compileAndLinkFromFiles() Failed to load fragment shader \"%s\"\n", fragShaderFilename.c_str());
         delete [] vertShaderSource;
         return false;
     }
 
     if (!_CompileShader(&m_vertShader, GL_VERTEX_SHADER, vertShaderSource, vertShaderSize))
     {
-        fprintf(stderr, "Shader::compileAndLinkFromFiles() Failed to compile vertex shader \"%s\"", vertShaderFilename.c_str());
+        fprintf(stderr, "Shader::compileAndLinkFromFiles() Failed to compile vertex shader \"%s\"\n", vertShaderFilename.c_str());
         _DumpShaderInfoLog(m_vertShader);
         glDeleteShader(m_vertShader);
         m_vertShader = 0;
@@ -131,7 +131,7 @@ bool Shader::compileAndLinkFromFiles(const std::string& vertShaderFilename,
 
     if (!_CompileShader(&m_fragShader, GL_FRAGMENT_SHADER, fragShaderSource, fragShaderSize))
     {
-        fprintf(stderr, "Shader::compileAndLinkFromFiles() Failed to compile fragment shader \"%s\"", fragShaderFilename.c_str());
+        fprintf(stderr, "Shader::compileAndLinkFromFiles() Failed to compile fragment shader \"%s\"\n", fragShaderFilename.c_str());
         _DumpShaderInfoLog(m_fragShader);
         glDeleteShader(m_fragShader);
         m_fragShader = 0;
@@ -140,7 +140,7 @@ bool Shader::compileAndLinkFromFiles(const std::string& vertShaderFilename,
 
     if (!_Link(&m_program, m_vertShader, m_fragShader))
     {
-        fprintf(stderr, "Shader::compileAndLinkFromFiles() Failed to link shaders \"%s\" and \"%s\"", vertShaderFilename.c_str(), fragShaderFilename.c_str());
+        fprintf(stderr, "Shader::compileAndLinkFromFiles() Failed to link shaders \"%s\" and \"%s\"\n", vertShaderFilename.c_str(), fragShaderFilename.c_str());
         _DumpProgramInfoLog(m_program);
         glDeleteProgram(m_program);
         m_program = 0;
@@ -194,6 +194,7 @@ void Shader::buildVarMaps()
         m_uniformVarMap[std::string(tempStr)] = v;
     }
 
+    m_attribLocMask = 0;
     glGetProgramiv(m_program, GL_ACTIVE_ATTRIBUTES, &numAttribs);
     for (int i = 0; i < numAttribs; ++i)
     {
@@ -201,9 +202,36 @@ void Shader::buildVarMaps()
         glGetActiveAttrib(m_program, i, MAX_STRING_SIZE, &strLen, &v.size, &v.type, tempStr);
         v.loc = glGetAttribLocation(m_program, tempStr);
         m_attribVarMap[std::string(tempStr)] = v;
+        m_attribLocMask |= ((uint32_t)1 << v.loc);
+        assert(v.loc < 32);
     }
 
     dump();
+}
+
+void Shader::apply(Shader* prev) const
+{
+    assert(m_program);
+    glUseProgram(m_program);
+
+    uint64_t diff = m_attribLocMask;
+    if (prev)
+        diff = m_attribLocMask ^ prev->m_attribLocMask;
+
+    //printf("apply %s\n", m_vertShaderFilename.c_str());
+    if (diff) {
+        for (int i = 0; i < 32; i++) {
+            if (diff & (1 << i)) {
+                if (m_attribLocMask & (1 << i)) {
+                    //printf("  enable %d\n", (i << 1));
+                    glEnableVertexAttribArray(i);
+                } else {
+                    //printf("  disable %d\n", (i << 1));
+                    glDisableVertexAttribArray(i);
+                }
+            }
+        }
+    }
 }
 
 void Shader::dump() const
