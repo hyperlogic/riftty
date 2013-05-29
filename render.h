@@ -6,7 +6,7 @@
 
 void RenderInit();
 
-void RenderTextBegin();
+void RenderTextBegin(const Matrixf& projMatrix, const Matrixf& viewMatrix, const Matrixf& modelMatrix);
 void RenderText(GB_GlyphQuad* quads, uint32_t num_quads);
 void RenderTextEnd();
 

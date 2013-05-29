@@ -126,20 +126,18 @@ static Vector4f UintColorToVector4(uint32_t color)
                     ((color >> 24) & 0xff) / 255.0f);
 }
 
-void RenderTextBegin()
+void RenderTextBegin(const Matrixf& projMatrix, const Matrixf& viewMatrix, const Matrixf& modelMatrix)
 {
+    Matrixf fullMatrix = projMatrix * viewMatrix * modelMatrix;
+    s_fullbrightShader->mat = fullMatrix;
+    s_fullbrightTexturedShader->mat = fullMatrix;
+
     s_prevShader = 0;
 }
 
 void RenderText(GB_GlyphQuad* quads, uint32_t num_quads)
 {
     // TODO: queue these up, so we can submit it batches.
-
-    // note this flips y-axis so y is down.
-    Matrixf proj = Matrixf::Ortho(0, s_config->width, s_config->height, 0, -10, 10);
-
-    s_fullbrightShader->mat = proj;
-    s_fullbrightTexturedShader->mat = proj;
 
     for (uint32_t i = 0; i < num_quads; ++i)
     {
