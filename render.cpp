@@ -49,7 +49,7 @@ public:
     mutable int color_loc;
     mutable int pos_loc;
 
-    void apply(const float* attribPtr, int stride) const
+    void apply(const Shader* prevShader, const float* attribPtr, int stride) const
     {
         if (mat_loc < 0)
             mat_loc = getUniformLoc("mat");
@@ -61,7 +61,7 @@ public:
         assert(mat_loc >= 0);
         assert(color_loc >= 0);
 
-        Shader::apply(0);
+        Shader::apply(prevShader);
         glUniformMatrix4fv(mat_loc, 1, false, (float*)&mat);
         glUniform4fv(color_loc, 1, (float*)&color);
 
@@ -78,7 +78,7 @@ public:
     mutable int tex_loc;
     mutable int uv_loc;
 
-    void apply(const float* attribPtr, int stride) const
+    void apply(const Shader* prevShader, const float* attribPtr, int stride) const
     {
         if (tex_loc < 0)
             tex_loc = getUniformLoc("tex");
@@ -87,7 +87,7 @@ public:
 
         assert(tex_loc >= 0);
 
-        FullbrightShader::apply(attribPtr, stride);
+        FullbrightShader::apply(prevShader, attribPtr, stride);
 
         glUniform1i(tex_loc, 0);
         glActiveTexture(GL_TEXTURE0);
@@ -97,9 +97,9 @@ public:
     }
 };
 
-
 FullbrightShader* s_fullbrightShader = 0;
 FullbrightTexturedShader* s_fullbrightTexturedShader = 0;
+Shader* s_prevShader = 0;
 
 void RenderInit()
 {
@@ -126,16 +126,20 @@ static Vector4f UintColorToVector4(uint32_t color)
                     ((color >> 24) & 0xff) / 255.0f);
 }
 
-void TextRenderFunc(GB_GlyphQuad* quads, uint32_t num_quads)
+void RenderTextBegin()
 {
+    s_prevShader = 0;
+}
+
+void RenderText(GB_GlyphQuad* quads, uint32_t num_quads)
+{
+    // TODO: queue these up, so we can submit it batches.
+
     // note this flips y-axis so y is down.
     Matrixf proj = Matrixf::Ortho(0, s_config->width, s_config->height, 0, -10, 10);
 
     s_fullbrightShader->mat = proj;
     s_fullbrightTexturedShader->mat = proj;
-
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     for (uint32_t i = 0; i < num_quads; ++i)
     {
@@ -154,7 +158,8 @@ void TextRenderFunc(GB_GlyphQuad* quads, uint32_t num_quads)
             origin.x + size.x, origin.y + size.y
         };
 
-        s_fullbrightShader->apply(pos, 0);
+        s_fullbrightShader->apply(s_prevShader, pos, 0);
+        s_prevShader = s_fullbrightShader;
 
         static uint16_t indices[] = {0, 2, 1, 2, 3, 1};
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, indices);
@@ -174,10 +179,16 @@ void TextRenderFunc(GB_GlyphQuad* quads, uint32_t num_quads)
 
             s_fullbrightTexturedShader->color = UintColorToVector4(data->fg_color);
             s_fullbrightTexturedShader->tex = quads[i].gl_tex_obj;
-            s_fullbrightTexturedShader->apply(attrib, 4 * 5);
+            s_fullbrightTexturedShader->apply(s_prevShader, attrib, 4 * 5);
+            s_prevShader = s_fullbrightTexturedShader;
 
             glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, indices);
         }
     }
     GL_ERROR_CHECK("TextRenderFunc");
+}
+
+void RenderTextEnd()
+{
+
 }

@@ -6,7 +6,9 @@
 
 void RenderInit();
 
-void TextRenderFunc(GB_GlyphQuad* quads, uint32_t num_quads);
+void RenderTextBegin();
+void RenderText(GB_GlyphQuad* quads, uint32_t num_quads);
+void RenderTextEnd();
 
 #ifdef DEBUG
 #define GL_ERROR_CHECK(x) GLErrorCheck(x)

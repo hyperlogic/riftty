@@ -209,7 +209,7 @@ void Shader::buildVarMaps()
     dump();
 }
 
-void Shader::apply(Shader* prev) const
+void Shader::apply(const Shader* prev) const
 {
     assert(m_program);
     glUseProgram(m_program);
@@ -218,15 +218,12 @@ void Shader::apply(Shader* prev) const
     if (prev)
         diff = m_attribLocMask ^ prev->m_attribLocMask;
 
-    //printf("apply %s\n", m_vertShaderFilename.c_str());
     if (diff) {
         for (int i = 0; i < 32; i++) {
             if (diff & (1 << i)) {
                 if (m_attribLocMask & (1 << i)) {
-                    //printf("  enable %d\n", (i << 1));
                     glEnableVertexAttribArray(i);
                 } else {
-                    //printf("  disable %d\n", (i << 1));
                     glDisableVertexAttribArray(i);
                 }
             }

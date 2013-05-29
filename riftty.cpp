@@ -41,15 +41,16 @@ void Render()
     glClearColor(s_clearColor.x, s_clearColor.y, s_clearColor.z, s_clearColor.w);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    for (size_t i = 0; i < s_context.textCount; i++)
-    {
-        GB_ERROR err = GB_TextDraw(s_context.gb, s_context.text[i]);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-        if (err != GB_ERROR_NONE) {
-            fprintf(stderr, "GB_DrawText Error %s\n", GB_ErrorToString(err));
-            exit(1);
-        }
+    RenderTextBegin();
+    for (size_t i = 0; i < s_context.textCount; i++) {
+        const GB_Text* text = s_context.text[i];
+        RenderText(text->glyph_quads, text->num_glyph_quads);
     }
+    RenderTextEnd();
+
     SDL_GL_SwapBuffers();
 }
 
@@ -109,8 +110,6 @@ int main(int argc, char* argv[])
     RenderInit();
 
     win_init();
-
-    GB_ContextSetTextRenderFunc(s_context.gb, TextRenderFunc);
 
     init_config();
     cs_init();  // TODO: code pages do not want
