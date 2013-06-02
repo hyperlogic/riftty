@@ -2,6 +2,8 @@
 
 require 'rake/clean'
 
+$CC = 'gcc'
+
 # used by tags task
 class Dir
   # for each file in path, including sub-directories,
@@ -79,7 +81,8 @@ $OBJECTS = ['darwin/SDLMain.o',
            ]
 
 $GEN_HEADERS = ['FullbrightShader.h',
-                'FullbrightTexturedShader.h']
+                'FullbrightTexturedShader.h',
+                'PhongTexturedShader.h']
 
 $DEPS = $OBJECTS.map {|f| f[0..-3] + '.d'}
 $EXE = 'riftty'
@@ -87,17 +90,17 @@ $EXE = 'riftty'
 # Use the compiler to build makefile rules for us.
 # This will list all of the pre-processor includes this source file depends on.
 def make_deps t
-  sh "gcc -MM -MF #{t.name} #{$C_FLAGS.join ' '} -c #{t.source}"
+  sh "#{$CC} -MM -MF #{t.name} #{$C_FLAGS.join ' '} -c #{t.source}"
 end
 
 # Compile a single compilation unit into an object file
 def compile obj, src
-  sh "gcc #{$C_FLAGS.join ' '} -c #{src} -o #{obj}"
+  sh "#{$CC} #{$C_FLAGS.join ' '} -c #{src} -o #{obj}"
 end
 
 # Link all the object files to create the exe
 def do_link exe, objects
-  sh "gcc #{objects.join ' '} -o #{exe} #{$L_FLAGS.join ' '}"
+  sh "#{$CC} #{objects.join ' '} -o #{exe} #{$L_FLAGS.join ' '}"
 end
 
 # generate makefile rules from source code
@@ -141,6 +144,7 @@ file :build_objs => $OBJECTS do
 end
 
 file :gen_shaders do
+  rm_rf $EXE
   sh "./gen_shaders.rb"
 end
 

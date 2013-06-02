@@ -10,6 +10,8 @@ void RenderTextBegin(const Matrixf& projMatrix, const Matrixf& viewMatrix, const
 void RenderText(GB_GlyphQuad* quads, uint32_t num_quads);
 void RenderTextEnd();
 
+void RenderFloor(const Matrixf& projMatrix, const Matrixf& viewMatrix, float height);
+
 #ifdef DEBUG
 #define GL_ERROR_CHECK(x) GLErrorCheck(x)
 void GLErrorCheck(const char* message);

@@ -6,6 +6,7 @@
 
 #include "FullbrightShader.h"
 #include "FullbrightTexturedShader.h"
+#include "PhongTexturedShader.h"
 
 #ifdef DEBUG
 // If there is a glError this outputs it along with a message to stderr.
@@ -41,72 +42,9 @@ void GLErrorCheck(const char* message)
 }
 #endif
 
-/*
-class FullbrightShader : public Shader
-{
-public:
-    FullbrightShader() :
-        Shader(), mat_loc(-1), color_loc(-1), pos_loc(-1) {}
-
-    Matrixf mat;
-    mutable int mat_loc;
-    Vector4f color;
-    mutable int color_loc;
-    mutable int pos_loc;
-
-    void apply(const Shader* prevShader, const float* attribPtr, int stride) const
-    {
-        if (mat_loc < 0)
-            mat_loc = getUniformLoc("mat");
-        if (color_loc < 0)
-            color_loc = getUniformLoc("color");
-        if (pos_loc < 0)
-            pos_loc = getAttribLoc("pos");
-
-        assert(mat_loc >= 0);
-        assert(color_loc >= 0);
-        assert(pos_loc >= 0);
-
-        Shader::apply(prevShader);
-        glUniformMatrix4fv(mat_loc, 1, false, (float*)&mat);
-        glUniform4fv(color_loc, 1, (float*)&color);
-
-        glVertexAttribPointer(pos_loc, 3, GL_FLOAT, false, stride, attribPtr);
-    }
-};
-
-class FullbrightTexturedShader : public FullbrightShader
-{
-public:
-    FullbrightTexturedShader() : FullbrightShader(), tex_loc(-1), uv_loc(-1) {}
-
-    int tex;
-    mutable int tex_loc;
-    mutable int uv_loc;
-
-    void apply(const Shader* prevShader, const float* attribPtr, int stride) const
-    {
-        if (tex_loc < 0)
-            tex_loc = getUniformLoc("tex");
-        if (uv_loc < 0)
-            uv_loc = getAttribLoc("uv");
-
-        assert(tex_loc >= 0);
-        assert(uv_loc >= 0);
-
-        FullbrightShader::apply(prevShader, attribPtr, stride);
-
-        glUniform1i(tex_loc, 0);
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, tex);
-
-        glVertexAttribPointer(uv_loc, 2, GL_FLOAT, false, stride, attribPtr + 3);
-    }
-};
-*/
-
 FullbrightShader* s_fullbrightShader = 0;
 FullbrightTexturedShader* s_fullbrightTexturedShader = 0;
+PhongTexturedShader* s_phongTexturedShader = 0;
 Shader* s_prevShader = 0;
 
 void RenderInit()
@@ -119,11 +57,9 @@ void RenderInit()
     s_fullbrightTexturedShader->compileAndLinkFromFiles("shader/fullbright_textured.vsh",
                                                        "shader/fullbright_textured_text.fsh");
 
-    /*
     s_phongTexturedShader = new PhongTexturedShader();
     s_phongTexturedShader->compileAndLinkFromFiles("shader/phong_textured.vsh",
                                                    "shader/phong_textured.fsh");
-    */
 }
 
 void RenderShutdown()
@@ -183,10 +119,10 @@ void RenderText(GB_GlyphQuad* quads, uint32_t num_quads)
             Vector2f uv_origin = Vector2f(quads[i].uv_origin[0], quads[i].uv_origin[1]);
             Vector2f uv_size = Vector2f(quads[i].uv_size[0], quads[i].uv_size[1]);
             float attrib[20] = {
-                origin.x, origin.y, 0, uv_origin.x, uv_origin.y,
-                origin.x + size.x, origin.y, 0, uv_origin.x + uv_size.x, uv_origin.y,
-                origin.x, origin.y + size.y, 0, uv_origin.x, uv_origin.y + uv_size.y,
-                origin.x + size.x, origin.y + size.y, 0, uv_origin.x + uv_size.x, uv_origin.y + uv_size.y
+                origin.x, origin.y, 10, uv_origin.x, uv_origin.y,
+                origin.x + size.x, origin.y, 10, uv_origin.x + uv_size.x, uv_origin.y,
+                origin.x, origin.y + size.y, 10, uv_origin.x, uv_origin.y + uv_size.y,
+                origin.x + size.x, origin.y + size.y, 10, uv_origin.x + uv_size.x, uv_origin.y + uv_size.y
             };
 
             s_fullbrightTexturedShader->setColor(UintColorToVector4(data->fg_color));
@@ -203,4 +139,57 @@ void RenderText(GB_GlyphQuad* quads, uint32_t num_quads)
 void RenderTextEnd()
 {
 
+}
+
+void RenderFloor(const Matrixf& projMatrix, const Matrixf& viewMatrix, float height)
+{
+    Matrixf worldMatrix = Matrixf::Trans(Vector3f(0, height, 0));
+    Matrixf normalMatrix = worldMatrix;
+    normalMatrix.SetTrans(Vector3f(0, 0, 0));
+
+    const float kFeetToCm = 30.48;
+    const float kInchesToCm = 2.54;
+
+    s_phongTexturedShader->setFullMat(projMatrix * viewMatrix * worldMatrix);
+    s_phongTexturedShader->setWorldMat(worldMatrix);
+    s_phongTexturedShader->setWorldNormalMat(normalMatrix);
+    s_phongTexturedShader->setColor(Vector4f(1, 1, 1, 1));
+    //s_phongTexturedShader->setTex(0);  // TODO: uh load a texture some how.
+
+    static bool init = false;
+    if (!init) {
+        std::vector<Vector3f> lightWorldPos;
+        lightWorldPos.push_back(Vector3f(0, 4 * kFeetToCm, 0));
+        lightWorldPos.push_back(Vector3f(10 * kFeetToCm, 4 * kFeetToCm, 0.0f));
+        lightWorldPos.push_back(Vector3f(0, 4 * kFeetToCm, 10 * kFeetToCm));
+        s_phongTexturedShader->setLightWorldPos(lightWorldPos);
+
+        std::vector<Vector3f> lightColor;
+        lightColor.push_back(Vector3f(1, 1, 1));
+        lightColor.push_back(Vector3f(1, 0, 0));
+        lightColor.push_back(Vector3f(0, 0, 1));
+        s_phongTexturedShader->setLightColor(lightColor);
+
+        std::vector<float> lightStrength;
+        lightStrength.push_back(200);
+        lightStrength.push_back(100);
+        lightStrength.push_back(100);
+        s_phongTexturedShader->setLightStrength(lightStrength);
+
+        s_phongTexturedShader->setNumLights(3);
+        init = true;
+    }
+
+    float kOffset = 1000.0f * kFeetToCm;
+    float kTexOffset = 2.0f;
+    float attrib[32] = {
+        0 - kOffset, 0, 0 - kOffset, 0, 0, 0, 1, 0,
+        0 + kOffset, 0, 0 - kOffset, 0 + kTexOffset, 0, 0, 1, 0,
+        0 - kOffset, 0, 0 + kOffset, 0, 0 + kTexOffset, 0, 1, 0,
+        0 + kOffset, 0, 0 + kOffset, 0 + kTexOffset, 0 + kTexOffset, 0, 1, 0
+    };
+    s_phongTexturedShader->apply(s_prevShader, attrib);
+
+    static uint16_t indices[] = {0, 2, 1, 2, 3, 1};
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, indices);
 }

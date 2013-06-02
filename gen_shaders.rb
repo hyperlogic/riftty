@@ -68,6 +68,7 @@ $cpp_header = <<CODE
 
 #include "shader.h"
 #include "abaci.h"
+#include <vector>
 
 class <%= prog.name.camelcase %> : public Shader
 {
@@ -92,7 +93,7 @@ public:
     {
 <% prog.uniforms.each do |u| %>
         if (m_locs[<%= u.name.camelcase %>UniformLoc])
-            m_locs[<%= u.name.camelcase %>UniformLoc] = getUniformLoc("<%= u.name %>");
+            m_locs[<%= u.name.camelcase %>UniformLoc] = getUniformLoc("<%= u.name %><%= u.class == BasicType ? "" : "[0]" %>");
         assert(m_locs[<%= u.name.camelcase %>UniformLoc] >= 0);
 <% end %>
 <% prog.attribs.each do |a| %>
@@ -116,14 +117,14 @@ public:
 
     // uniform accessors
 <% prog.uniforms.each do |u| %>
-    <%= $cpp_ref_type[u.type] %> get<%= u.name.camelcase %>() const { return m_<%= u.name.camelcase.uncapitalize %>; }
-    void set<%= u.name.camelcase %>(<%= $cpp_ref_type[u.type] %> v) { m_<%= u.name.camelcase.uncapitalize %> = v; }
+    <%= prog.uniform_ref_type(u) %> get<%= u.name.camelcase %>() const { return m_<%= u.name.camelcase.uncapitalize %>; }
+    void set<%= u.name.camelcase %>(<%= prog.uniform_ref_type(u) %> v) { m_<%= u.name.camelcase.uncapitalize %> = v; }
 <% end %>
 
 protected:
     mutable int m_locs[NumLocs];
 <% prog.uniforms.each do |u| %>
-    <%= $cpp_decl_type[u.type] %> m_<%= u.name.camelcase.uncapitalize %>;
+    <%= prog.uniform_decl_type(u) %> m_<%= u.name.camelcase.uncapitalize %>;
 <% end %>
 
 };
@@ -132,7 +133,7 @@ protected:
 CODE
 
 BasicType = Struct.new(:type, :name)
-ArrayType = Struct.new(:type, :name, :len)
+ArrayType = Struct.new(:type, :name, :count)
 
 class Prog < Struct.new(:name, :vsh, :fsh, :uniforms, :attribs)
   def build
@@ -152,32 +153,45 @@ class Prog < Struct.new(:name, :vsh, :fsh, :uniforms, :attribs)
   end
 
   def uniform_to_tex_stage uniform
+    assert {uniform.class == BasicType}
     textures = uniforms.find_all {|u| u.type == :sampler2D}
     textures.find_index {|u| u.name == uniform.name}
   end
 
   def gen_uniform_call(u)
     loc = "m_locs[#{u.name.camelcase}UniformLoc]"
-    count = 1
+    count = u.class == BasicType ? 1 : u.count
     value = "m_#{u.name.camelcase.uncapitalize}"
-
     assert {$uniform_call[u.type]}
 
     case u.type
     when :int
-      "#{$uniform_call[u.type]}(#{loc}, #{count}, (int*)&#{value});"
+      if u.class == BasicType
+        "#{$uniform_call[u.type]}(#{loc}, #{count}, (int*)&#{value});"
+      else
+        "#{$uniform_call[u.type]}(#{loc}, #{count}, (int*)&#{value}[0]);"
+      end
     when :sampler2D
       stage = uniform_to_tex_stage(u)
-      assert {stage}
+      assert {stage && u.class == BasicType}  # ArrayType not supported on samplers!
       "glUniform1i(#{loc}, #{stage}); glActiveTexture(GL_TEXTURE0 + #{stage}); glBindTexture(GL_TEXTURE_2D, #{value});"
     when :mat4
-      "#{$uniform_call[u.type]}(#{loc}, #{count}, false, (float*)&#{value});"
+      if u.class == BasicType
+        "#{$uniform_call[u.type]}(#{loc}, #{count}, false, (float*)&#{value});"
+      else
+        "#{$uniform_call[u.type]}(#{loc}, #{count}, false, (float*)&#{value}[0]);"
+      end
     else
-      "#{$uniform_call[u.type]}(#{loc}, #{count}, (float*)&#{value});"
+      if u.class == BasicType
+        "#{$uniform_call[u.type]}(#{loc}, #{count}, (float*)&#{value});"
+      else
+        "#{$uniform_call[u.type]}(#{loc}, #{count}, (float*)&#{value}[0]);"
+      end
     end
   end
 
   def gen_attrib_call(a, offset, stride)
+    assert {a.class == BasicType}  # array types not supported on attribs
     assert {a && offset && stride}
 
     size = calc_attrib_size(a)
@@ -188,10 +202,27 @@ class Prog < Struct.new(:name, :vsh, :fsh, :uniforms, :attribs)
   end
 
   def calc_attrib_size(a)
+    assert {a.class == BasicType}  # array types not supported on attribs
     assert {a}
     size = $attrib_size[a.type]
     assert {size}
     size
+  end
+
+  def uniform_decl_type(u)
+    if u.class == BasicType
+      $cpp_decl_type[u.type]
+    else
+      "std::vector<#{$cpp_decl_type[u.type]}>"
+    end
+  end
+
+  def uniform_ref_type(u)
+    if u.class == BasicType
+      $cpp_ref_type[u.type]
+    else
+      "const std::vector<#{$cpp_decl_type[u.type]}>&"
+    end
   end
 end
 
@@ -209,12 +240,20 @@ progs = [Prog.new("fullbright_shader",
                    BasicType.new(:vec2, :uv)]),
          Prog.new("phong_textured_shader",
                   "shader/phong_textured.vsh", "shader/phong_textured.fsh",
-                  [{:color => :vec4}, {:full_mat => :mat4}, {:world_mat => :mat4},
-                   {:world_normal_mat => :mat4}, {:tex => :sampler2D}, {:num_lights => :int},
-                   ],
-                  [{:pos => :vec3}, {:uv => :vec2}, {:normal => :vec3}])
+                  [BasicType.new(:vec4, :color),
+                   BasicType.new(:mat4, :full_mat),
+                   BasicType.new(:mat4, :world_mat),
+                   BasicType.new(:mat4, :world_normal_mat),
+                   #BasicType.new(:sampler2D, :tex),
+                   BasicType.new(:int, :num_lights),
+                   ArrayType.new(:vec3, :light_world_pos, 8),
+                   ArrayType.new(:vec3, :light_color, 8),
+                   ArrayType.new(:float, :light_strength, 8)],
+                  [BasicType.new(:vec3, :pos),
+                   BasicType.new(:vec2, :uv),
+                   BasicType.new(:vec3, :normal)])
         ]
 
-progs[0, 2].each do |prog|
+progs.each do |prog|
   prog.build
 end

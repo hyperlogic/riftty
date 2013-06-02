@@ -43,6 +43,7 @@ void Render()
     glClearColor(s_clearColor.x, s_clearColor.y, s_clearColor.z, s_clearColor.w);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+    glEnable(GL_DEPTH_TEST);
     glDisable(GL_CULL_FACE);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -50,11 +51,11 @@ void Render()
     static float t = 0.0;
     t += 0.1;
 
-    Matrixf cameraMatrix = Matrixf::LookAt(Vector3f(50 * sin(t), 50 * cos(t), 250), Vector3f(0, 0, 0), Vector3f(0, 1, 0));
+    Matrixf cameraMatrix = Matrixf::LookAt(Vector3f(50 * sin(t), 50 * cos(t), 500), Vector3f(0, 0, 0), Vector3f(0, 1, 0));
     Matrixf viewMatrix = s_RotY90 * cameraMatrix.OrthoInverse();
 
     float aspect = (float)s_config->width / s_config->height;
-    Matrixf projMatrix = Matrixf::Frustum(DegToRad(50.0f), aspect, 0.1, 10000);
+    Matrixf projMatrix = Matrixf::Frustum(DegToRad(50.0f), aspect, 10.0, 10000);
     Matrixf modelMatrix = Matrixf::ScaleQuatTrans(Vector3f(0.25, -0.25, 0.25), Quatf::Identity(), Vector3f(-s_config->width/2.0f, s_config->height/2.0f, 0) * 0.25f);
 
     RenderTextBegin(projMatrix, viewMatrix, modelMatrix);
@@ -64,8 +65,7 @@ void Render()
     }
     RenderTextEnd();
 
-    //RenderCheckerBoard(0.0f);
-    //RenderCheckerBoard(kFeetToCm * 10.0f);
+    RenderFloor(projMatrix, viewMatrix, -100.0f);
 
     SDL_GL_SwapBuffers();
 }

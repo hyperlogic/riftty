@@ -6,3 +6,4 @@ TAGS
 # generated shader headers
 FullbrightShader.h
 FullbrightTexturedShader.h
+PhongTexturedShader.h
