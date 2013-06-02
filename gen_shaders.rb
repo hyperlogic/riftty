@@ -55,29 +55,6 @@ $uniform_call = {
   :sampler2D => 'glUniform1iv',
 }
 
-def gen_uniform_call(u)
-
-  loc = "m_locs[#{u.first[0].camelcase}UniformLoc]"
-  count = 1
-  value = "m_#{u.first[0].camelcase.uncapitalize}"
-  type = u.first[1]
-
-  assert {$uniform_call[type]}
-
-  case type
-  when :int
-    "#{$uniform_call[type]}(#{loc}, #{count}, (int*)&#{value});"
-  when :sampler2D
-    # TODO: calculate stage by using Prog#uniform_to_tex_stage
-    stage = 0
-    "glUniform1i(#{loc}, #{stage}); glActiveTexture(GL_TEXTURE0 + #{stage}); glBindTexture(GL_TEXTURE_2D, #{value});"
-  when :mat4
-    "#{$uniform_call[type]}(#{loc}, #{count}, false, (float*)&#{value});"
-  else
-    "#{$uniform_call[type]}(#{loc}, #{count}, (float*)&#{value});"
-  end
-end
-
 $attrib_size = {
   :float => 1,
   :vec2 => 2,
@@ -85,24 +62,6 @@ $attrib_size = {
   :vec4 => 4,
 }
 
-def calc_attrib_size(a)
-  assert {a}
-  type = a.first[1]
-  assert {type}
-  size = $attrib_size[type]
-  assert {size}
-  size
-end
-
-def gen_attrib_call(a, offset, stride)
-  assert {a && offset && stride}
-
-  size = calc_attrib_size(a)
-  assert {size}
-
-  loc = "m_locs[#{a.first[0].camelcase}AttribLoc]"
-  "glVertexAttribPointer(#{loc}, #{size}, GL_FLOAT, false, #{stride}, attribPtr + #{offset});"
-end
 $cpp_header = <<CODE
 #ifndef <%= prog.name.upcase %>_H
 #define <%= prog.name.upcase %>_H
@@ -115,15 +74,15 @@ class <%= prog.name.camelcase %> : public Shader
 public:
     enum Locs {
 <% prog.uniforms.each do |u| %>
-        <%= u.first[0].camelcase %>UniformLoc,
+        <%= u.name.camelcase %>UniformLoc,
 <% end %>
 <% prog.attribs.each do |a| %>
-        <%= a.first[0].camelcase %>AttribLoc,
+        <%= a.name.camelcase %>AttribLoc,
 <% end %>
         NumLocs
     };
 
-    <%= name.camelcase %>() : Shader()
+    <%= prog.name.camelcase %>() : Shader()
     {
         for (int i = 0; i < NumLocs; i++)
             m_locs[i] = -1;
@@ -132,45 +91,48 @@ public:
     void apply(const Shader* prevShader, const float* attribPtr) const
     {
 <% prog.uniforms.each do |u| %>
-        if (m_locs[<%= u.first[0].camelcase %>UniformLoc])
-            m_locs[<%= u.first[0].camelcase %>UniformLoc] = getUniformLoc("<%= u.first[0] %>");
-        assert(m_locs[<%= u.first[0].camelcase %>UniformLoc] >= 0);
+        if (m_locs[<%= u.name.camelcase %>UniformLoc])
+            m_locs[<%= u.name.camelcase %>UniformLoc] = getUniformLoc("<%= u.name %>");
+        assert(m_locs[<%= u.name.camelcase %>UniformLoc] >= 0);
 <% end %>
 <% prog.attribs.each do |a| %>
-        if (m_locs[<%= a.first[0].camelcase %>AttribLoc])
-            m_locs[<%= a.first[0].camelcase %>AttribLoc] = getAttribLoc("<%= a.first[0] %>");
-        assert(m_locs[<%= a.first[0].camelcase %>AttribLoc] >= 0);
+        if (m_locs[<%= a.name.camelcase %>AttribLoc])
+            m_locs[<%= a.name.camelcase %>AttribLoc] = getAttribLoc("<%= a.name %>");
+        assert(m_locs[<%= a.name.camelcase %>AttribLoc] >= 0);
 <% end %>
 
         Shader::apply(prevShader);
 
 <% prog.uniforms.each do |u| %>
-        <%= gen_uniform_call(u) %>
+        <%= prog.gen_uniform_call(u) %>
 <% end %>
-<% stride = prog.attribs.map {|a| 4 * calc_attrib_size(a)}.reduce {|a, b| a + b} %>
+<% stride = prog.attribs.map {|a| 4 * prog.calc_attrib_size(a)}.reduce {|a, b| a + b} %>
 <% offset = 0 %>
 <% prog.attribs.each do |a| %>
-        <%= gen_attrib_call(a, offset, stride) %>
-<%     offset += calc_attrib_size(a) %>
+        <%= prog.gen_attrib_call(a, offset, stride) %>
+<%     offset += prog.calc_attrib_size(a) %>
 <% end %>
     }
 
     // uniform accessors
 <% prog.uniforms.each do |u| %>
-    <%= $cpp_ref_type[u.first[1]] %> get<%= u.first[0].camelcase %>() const { return m_<%= u.first[0].camelcase.uncapitalize %>; }
-    void set<%= u.first[0].camelcase %>(<%= $cpp_ref_type[u.first[1]] %> v) { m_<%= u.first[0].camelcase.uncapitalize %> = v; }
+    <%= $cpp_ref_type[u.type] %> get<%= u.name.camelcase %>() const { return m_<%= u.name.camelcase.uncapitalize %>; }
+    void set<%= u.name.camelcase %>(<%= $cpp_ref_type[u.type] %> v) { m_<%= u.name.camelcase.uncapitalize %> = v; }
 <% end %>
 
 protected:
     mutable int m_locs[NumLocs];
 <% prog.uniforms.each do |u| %>
-    <%= $cpp_decl_type[u.first[1]] %> m_<%= u.first[0].camelcase.uncapitalize %>;
+    <%= $cpp_decl_type[u.type] %> m_<%= u.name.camelcase.uncapitalize %>;
 <% end %>
 
 };
 
 #endif // #define <%= prog.name.upcase %>_H
 CODE
+
+BasicType = Struct.new(:type, :name)
+ArrayType = Struct.new(:type, :name, :len)
 
 class Prog < Struct.new(:name, :vsh, :fsh, :uniforms, :attribs)
   def build
@@ -190,30 +152,69 @@ class Prog < Struct.new(:name, :vsh, :fsh, :uniforms, :attribs)
   end
 
   def uniform_to_tex_stage uniform
-    textures = uniforms.find_all {|u| u.first[1] == :sampler2D}
-    textures.find_index {|u| u.first[0] == uniform.first}
+    textures = uniforms.find_all {|u| u.type == :sampler2D}
+    textures.find_index {|u| u.name == uniform.name}
+  end
+
+  def gen_uniform_call(u)
+    loc = "m_locs[#{u.name.camelcase}UniformLoc]"
+    count = 1
+    value = "m_#{u.name.camelcase.uncapitalize}"
+
+    assert {$uniform_call[u.type]}
+
+    case u.type
+    when :int
+      "#{$uniform_call[u.type]}(#{loc}, #{count}, (int*)&#{value});"
+    when :sampler2D
+      stage = uniform_to_tex_stage(u)
+      assert {stage}
+      "glUniform1i(#{loc}, #{stage}); glActiveTexture(GL_TEXTURE0 + #{stage}); glBindTexture(GL_TEXTURE_2D, #{value});"
+    when :mat4
+      "#{$uniform_call[u.type]}(#{loc}, #{count}, false, (float*)&#{value});"
+    else
+      "#{$uniform_call[u.type]}(#{loc}, #{count}, (float*)&#{value});"
+    end
+  end
+
+  def gen_attrib_call(a, offset, stride)
+    assert {a && offset && stride}
+
+    size = calc_attrib_size(a)
+    assert {size}
+
+    loc = "m_locs[#{a.name.camelcase}AttribLoc]"
+    "glVertexAttribPointer(#{loc}, #{size}, GL_FLOAT, false, #{stride}, attribPtr + #{offset});"
+  end
+
+  def calc_attrib_size(a)
+    assert {a}
+    size = $attrib_size[a.type]
+    assert {size}
+    size
   end
 end
 
-LightStruct = {:world_pos => :vec3, :color => :vec3, :strength => :float}
-
 progs = [Prog.new("fullbright_shader",
                   "shader/fullbright.vsh", "shader/fullbright.fsh",
-                  [{:color => :vec4}, {:mat => :mat4}],
-                  [{:pos => :vec3}]),
+                  [BasicType.new(:vec4, :color),
+                   BasicType.new(:mat4, :mat)],
+                  [BasicType.new(:vec3, :pos)]),
          Prog.new("fullbright_textured_shader",
                   "shader/fullbright_textured.vsh", "shader/fullbright_textured_text.fsh",
-                  [{:color => :vec4}, {:mat => :mat4}, {:tex => :sampler2D}],
-                  [{:pos => :vec3}, {:uv => :vec2}]),
+                  [BasicType.new(:vec4, :color),
+                   BasicType.new(:mat4, :mat),
+                   BasicType.new(:sampler2D, :tex)],
+                  [BasicType.new(:vec3, :pos),
+                   BasicType.new(:vec2, :uv)]),
          Prog.new("phong_textured_shader",
                   "shader/phong_textured.vsh", "shader/phong_textured.fsh",
                   [{:color => :vec4}, {:full_mat => :mat4}, {:world_mat => :mat4},
                    {:world_normal_mat => :mat4}, {:tex => :sampler2D}, {:num_lights => :int},
-                   {:lights => Array.new(8, LightStruct)}],
+                   ],
                   [{:pos => :vec3}, {:uv => :vec2}, {:normal => :vec3}])
         ]
 
 progs[0, 2].each do |prog|
   prog.build
 end
-

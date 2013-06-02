@@ -113,6 +113,13 @@ end
 
 # adds .o rules so that objects will be recompiled if any of the contributing source code has changed.
 task :add_deps => $DEPS do
+
+  $GEN_HEADERS.each do |header|
+    file header => "gen_shaders.rb" do |t|
+      sh './gen_shaders.rb'
+    end
+  end
+
   $OBJECTS.each do |obj|
     dep = obj[0..-3] + '.d'
     raise "Could not find dep file for object #{obj}" unless dep
