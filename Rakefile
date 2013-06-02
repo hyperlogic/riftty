@@ -78,6 +78,9 @@ $OBJECTS = ['darwin/SDLMain.o',
             'glyphblaster/src/gb_texture.o',
            ]
 
+$GEN_HEADERS = ['FullbrightShader.h',
+                'FullbrightTexturedShader.h']
+
 $DEPS = $OBJECTS.map {|f| f[0..-3] + '.d'}
 $EXE = 'riftty'
 
@@ -130,11 +133,16 @@ end
 file :build_objs => $OBJECTS do
 end
 
+file :gen_shaders do
+  sh "./gen_shaders.rb"
+end
+
 file $EXE => [:add_deps, :build_objs] do
   do_link $EXE, $OBJECTS
 end
 
 task :build => $EXE
+
 task :add_opt_flags do
   $C_FLAGS += $OPT_C_FLAGS
 end
@@ -143,10 +151,10 @@ task :add_debug_flags do
 end
 
 desc "Optimized Build"
-task :opt => [:add_opt_flags, $EXE]
+task :opt => [:add_opt_flags, :gen_shaders, $EXE]
 
 desc "Debug Build"
-task :debug => [:add_debug_flags, $EXE]
+task :debug => [:add_debug_flags, :gen_shaders, $EXE]
 
 desc "Optimized Build, By Default"
 task :default => [:opt]
@@ -172,6 +180,6 @@ task :tags do
   src_files.each {|f| sh "etags -a #{f}"}
 end
 
-CLEAN.include $DEPS, $OBJECTS
+CLEAN.include $DEPS, $OBJECTS, $GEN_HEADERS
 CLOBBER.include $EXE
 

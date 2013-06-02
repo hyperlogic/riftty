@@ -2,3 +2,7 @@ riftty
 *.o
 *.d
 TAGS
+
+# generated shader headers
+FullbrightShader.h
+FullbrightTexturedShader.h

@@ -35,6 +35,9 @@ void Process(float dt)
     child_poll();
 }
 
+const float kFeetToCm = 30.48;
+const float kInchesToCm = 2.54;
+
 void Render()
 {
     glClearColor(s_clearColor.x, s_clearColor.y, s_clearColor.z, s_clearColor.w);
@@ -54,17 +57,15 @@ void Render()
     Matrixf projMatrix = Matrixf::Frustum(DegToRad(50.0f), aspect, 0.1, 10000);
     Matrixf modelMatrix = Matrixf::ScaleQuatTrans(Vector3f(0.25, -0.25, 0.25), Quatf::Identity(), Vector3f(-s_config->width/2.0f, s_config->height/2.0f, 0) * 0.25f);
 
-    // note this flips y-axis so y is down.
-    //Matrixf projMatrix = Matrixf::Ortho(0, s_config->width, s_config->height, 0, -10, 10);
-
-
-
     RenderTextBegin(projMatrix, viewMatrix, modelMatrix);
     for (size_t i = 0; i < s_context.textCount; i++) {
         const GB_Text* text = s_context.text[i];
         RenderText(text->glyph_quads, text->num_glyph_quads);
     }
     RenderTextEnd();
+
+    //RenderCheckerBoard(0.0f);
+    //RenderCheckerBoard(kFeetToCm * 10.0f);
 
     SDL_GL_SwapBuffers();
 }

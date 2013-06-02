@@ -4,6 +4,9 @@
 #include "appconfig.h"
 #include "win.h"
 
+#include "FullbrightShader.h"
+#include "FullbrightTexturedShader.h"
+
 #ifdef DEBUG
 // If there is a glError this outputs it along with a message to stderr.
 // otherwise there is no output.
@@ -38,10 +41,12 @@ void GLErrorCheck(const char* message)
 }
 #endif
 
+/*
 class FullbrightShader : public Shader
 {
 public:
-    FullbrightShader() : Shader(), mat_loc(-1), color_loc(-1), pos_loc(-1) {}
+    FullbrightShader() :
+        Shader(), mat_loc(-1), color_loc(-1), pos_loc(-1) {}
 
     Matrixf mat;
     mutable int mat_loc;
@@ -60,6 +65,7 @@ public:
 
         assert(mat_loc >= 0);
         assert(color_loc >= 0);
+        assert(pos_loc >= 0);
 
         Shader::apply(prevShader);
         glUniformMatrix4fv(mat_loc, 1, false, (float*)&mat);
@@ -86,6 +92,7 @@ public:
             uv_loc = getAttribLoc("uv");
 
         assert(tex_loc >= 0);
+        assert(uv_loc >= 0);
 
         FullbrightShader::apply(prevShader, attribPtr, stride);
 
@@ -96,6 +103,7 @@ public:
         glVertexAttribPointer(uv_loc, 2, GL_FLOAT, false, stride, attribPtr + 3);
     }
 };
+*/
 
 FullbrightShader* s_fullbrightShader = 0;
 FullbrightTexturedShader* s_fullbrightTexturedShader = 0;
@@ -110,6 +118,12 @@ void RenderInit()
     s_fullbrightTexturedShader = new FullbrightTexturedShader();
     s_fullbrightTexturedShader->compileAndLinkFromFiles("shader/fullbright_textured.vsh",
                                                        "shader/fullbright_textured_text.fsh");
+
+    /*
+    s_phongTexturedShader = new PhongTexturedShader();
+    s_phongTexturedShader->compileAndLinkFromFiles("shader/phong_textured.vsh",
+                                                   "shader/phong_textured.fsh");
+    */
 }
 
 void RenderShutdown()
@@ -129,8 +143,8 @@ static Vector4f UintColorToVector4(uint32_t color)
 void RenderTextBegin(const Matrixf& projMatrix, const Matrixf& viewMatrix, const Matrixf& modelMatrix)
 {
     Matrixf fullMatrix = projMatrix * viewMatrix * modelMatrix;
-    s_fullbrightShader->mat = fullMatrix;
-    s_fullbrightTexturedShader->mat = fullMatrix;
+    s_fullbrightShader->setMat(fullMatrix);
+    s_fullbrightTexturedShader->setMat(fullMatrix);
 
     s_prevShader = 0;
 }
@@ -143,7 +157,7 @@ void RenderText(GB_GlyphQuad* quads, uint32_t num_quads)
     {
         const WIN_TextUserData* data = (const WIN_TextUserData*)quads[i].user_data;
 
-        s_fullbrightShader->color = UintColorToVector4(data->bg_color);
+        s_fullbrightShader->setColor(UintColorToVector4(data->bg_color));
 
         uint32_t y_offset = data->line_height / 3; // hack
         Vector2f origin = Vector2f(quads[i].pen[0], quads[i].pen[1] + y_offset);
@@ -156,7 +170,7 @@ void RenderText(GB_GlyphQuad* quads, uint32_t num_quads)
             origin.x + size.x, origin.y + size.y
         };
 
-        s_fullbrightShader->apply(s_prevShader, pos, 0);
+        s_fullbrightShader->apply(s_prevShader, pos);
         s_prevShader = s_fullbrightShader;
 
         static uint16_t indices[] = {0, 2, 1, 2, 3, 1};
@@ -175,9 +189,9 @@ void RenderText(GB_GlyphQuad* quads, uint32_t num_quads)
                 origin.x + size.x, origin.y + size.y, 0, uv_origin.x + uv_size.x, uv_origin.y + uv_size.y
             };
 
-            s_fullbrightTexturedShader->color = UintColorToVector4(data->fg_color);
-            s_fullbrightTexturedShader->tex = quads[i].gl_tex_obj;
-            s_fullbrightTexturedShader->apply(s_prevShader, attrib, 4 * 5);
+            s_fullbrightTexturedShader->setColor(UintColorToVector4(data->fg_color));
+            s_fullbrightTexturedShader->setTex(quads[i].gl_tex_obj);
+            s_fullbrightTexturedShader->apply(s_prevShader, attrib);
             s_prevShader = s_fullbrightTexturedShader;
 
             glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, indices);

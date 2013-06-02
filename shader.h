@@ -9,7 +9,7 @@ class Shader
 {
 public:
     Shader();
-    ~Shader();
+    virtual ~Shader();
     bool compileAndLinkFromFiles(const std::string& vertShaderFilename,
                                  const std::string& fragShaderFilename);
     int getUniformLoc(const std::string& uniformName) const;

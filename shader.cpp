@@ -211,6 +211,9 @@ void Shader::buildVarMaps()
 
 void Shader::apply(const Shader* prev) const
 {
+    if (prev && prev->m_program == m_program)
+        return;
+
     assert(m_program);
     glUseProgram(m_program);
 
