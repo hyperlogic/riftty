@@ -24,7 +24,7 @@ extern "C" {
 #include "win.h"
 }
 
-Vector4f s_clearColor(0, 0, 1, 1);
+Vector4f s_clearColor(0, 0, 0.2, 1);
 
 // time tracking
 unsigned int s_ticks = 0;

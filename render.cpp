@@ -46,6 +46,44 @@ FullbrightShader* s_fullbrightShader = 0;
 FullbrightTexturedShader* s_fullbrightTexturedShader = 0;
 PhongTexturedShader* s_phongTexturedShader = 0;
 Shader* s_prevShader = 0;
+GLuint s_checker = 0;
+
+static GLint CreateCheckerTexture()
+{
+    GLuint retVal = 0;
+    glGenTextures(1, &retVal);
+    glBindTexture(GL_TEXTURE_2D, retVal);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_LINEAR);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+    const int W = 512;
+    const uint8_t O = 100;
+    const uint8_t X = 255;
+    static uint8_t checker[W * W];
+    int i, j;
+    for (i = 0; i < W; i++) {
+        for (j = 0; j < W; j++) {
+            if (i < W/2) {
+                if (j < W/2)
+                    checker[i * W + j] = O;
+                else
+                    checker[i * W + j] = X;
+            } else {
+                if (j < W/2)
+                    checker[i * W + j] = X;
+                else
+                    checker[i * W + j] = O;
+            }
+        }
+    }
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, W, W, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, checker);
+    return retVal;
+}
 
 void RenderInit()
 {
@@ -60,6 +98,8 @@ void RenderInit()
     s_phongTexturedShader = new PhongTexturedShader();
     s_phongTexturedShader->compileAndLinkFromFiles("shader/phong_textured.vsh",
                                                    "shader/phong_textured.fsh");
+
+    s_checker = CreateCheckerTexture();
 }
 
 void RenderShutdown()
@@ -154,7 +194,7 @@ void RenderFloor(const Matrixf& projMatrix, const Matrixf& viewMatrix, float hei
     s_phongTexturedShader->setWorldMat(worldMatrix);
     s_phongTexturedShader->setWorldNormalMat(normalMatrix);
     s_phongTexturedShader->setColor(Vector4f(1, 1, 1, 1));
-    //s_phongTexturedShader->setTex(0);  // TODO: uh load a texture some how.
+    s_phongTexturedShader->setTex(s_checker);
 
     static bool init = false;
     if (!init) {
@@ -181,7 +221,7 @@ void RenderFloor(const Matrixf& projMatrix, const Matrixf& viewMatrix, float hei
     }
 
     float kOffset = 1000.0f * kFeetToCm;
-    float kTexOffset = 2.0f;
+    float kTexOffset = 200.0f;
     float attrib[32] = {
         0 - kOffset, 0, 0 - kOffset, 0, 0, 0, 1, 0,
         0 + kOffset, 0, 0 - kOffset, 0 + kTexOffset, 0, 0, 1, 0,

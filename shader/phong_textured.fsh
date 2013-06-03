@@ -1,5 +1,5 @@
 uniform vec4 color;
-//uniform sampler2D tex;
+uniform sampler2D tex;
 
 #define MAX_LIGHTS 8
 uniform vec3 light_world_pos[MAX_LIGHTS];
@@ -26,5 +26,5 @@ void main(void)
         accum += light_color[i] * intensity;
     }
 
-    gl_FragColor = vec4(accum, 1) * color; //* texture2D(tex, frag_uv);
+    gl_FragColor = vec4(accum, 1) * color * texture2D(tex, frag_uv);
 }
