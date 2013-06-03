@@ -143,7 +143,7 @@ void RenderText(GB_GlyphQuad* quads, uint32_t num_quads)
     {
         const WIN_TextUserData* data = (const WIN_TextUserData*)quads[i].user_data;
 
-        s_fullbrightShader->setColor(UintColorToVector4(data->bg_color));
+        s_fullbrightShader->setColor(UintColorToVector4(data->bg_color) - Vector4f(0, 0, 0, -0.2));
 
         uint32_t y_offset = data->line_height / 3; // hack
         Vector2f origin = Vector2f(quads[i].pen[0], quads[i].pen[1] + y_offset);

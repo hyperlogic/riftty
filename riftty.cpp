@@ -24,11 +24,59 @@ extern "C" {
 #include "win.h"
 }
 
+#include "OVR.h"
+
 Vector4f s_clearColor(0, 0, 0.2, 1);
 
 // time tracking
 unsigned int s_ticks = 0;
 static Matrixf s_RotY90 = Matrixf::AxisAngle(Vector3f(0,1,0), PI/2.0f);
+
+OVR::Ptr<OVR::DeviceManager> s_pManager;
+OVR::Ptr<OVR::HMDDevice> s_pHMD;
+OVR::Ptr<OVR::SensorDevice> s_pSensor;
+OVR::SensorFusion s_SFusion;
+
+void DumpHMDInfo(const OVR::HMDInfo& hmd)
+{
+    printf("HResolution = %u\n", hmd.HResolution);
+    printf("VResolution = %u\n", hmd.VResolution);
+    printf("HScreenSize = %.3f\n", hmd.HScreenSize);
+    printf("VScreenSize = %.3f\n", hmd.VScreenSize);
+    printf("VScreenCenter = %.5f\n", hmd.VScreenCenter);
+    printf("EyeToScreenDistance = %.5f\n", hmd.EyeToScreenDistance);
+    printf("LensSeparationDistance = %.5f\n", hmd.LensSeparationDistance);
+    printf("InterpupillaryDistance = %.5f\n", hmd.InterpupillaryDistance);
+    printf("DistortionK = (%.5f, %.5f, %.5f, %.5f)\n", hmd.DistortionK[0], hmd.DistortionK[1], hmd.DistortionK[2], hmd.DistortionK[3]);
+    printf("ChromaAbCorrection = (%.5f, %.5f, %.5f, %.5f)\n", hmd.ChromaAbCorrection[0], hmd.ChromaAbCorrection[1], hmd.ChromaAbCorrection[2], hmd.ChromaAbCorrection[3]);
+}
+
+void RiftSetup()
+{
+    OVR::System::Init(OVR::Log::ConfigureDefaultLog(OVR::LogMask_All));
+
+    s_pManager = *OVR::DeviceManager::Create();
+    s_pHMD     = *s_pManager->EnumerateDevices<OVR::HMDDevice>().CreateDevice();
+
+    if (s_pHMD) {
+        OVR::HMDInfo hmd;
+        if (s_pHMD->GetDeviceInfo(&hmd))
+        {
+            DumpHMDInfo(hmd);
+        }
+
+        s_pSensor = *s_pHMD->GetSensor();
+        if (s_pSensor)
+            s_SFusion.AttachToSensor(s_pSensor);
+    } else {
+        fprintf(stderr, "NO RIFT FOUND\n");
+    }
+}
+
+void RiftShutdown()
+{
+    OVR::System::Destroy();
+}
 
 void Process(float dt)
 {
@@ -37,6 +85,7 @@ void Process(float dt)
 
 const float kFeetToCm = 30.48;
 const float kInchesToCm = 2.54;
+const float kMetersToCm = 100.0;
 
 void Render(float dt)
 {
@@ -51,25 +100,100 @@ void Render(float dt)
     static float t = 0.0;
     t += dt;
 
-    Matrixf cameraMatrix = Matrixf::LookAt(Vector3f(50 * sin(t), 50 * cos(t), 500), Vector3f(0, 0, 0), Vector3f(0, 1, 0));
-    Matrixf viewMatrix = s_RotY90 * cameraMatrix.OrthoInverse();
+    float kHResolution = s_config->width;
+    float kVResolution = s_config->height;
+    float kHScreenSize = 0.15;
+    float kVScreenSize = 0.094;
+    float kVScreenCenter = 0.04680;
+    float kEyeToScreenDistance = 0.04100;
+    float kLensSeparationDistance = 0.06350;
+    float kInterpupillaryDistance = 0.06400;
+    Vector4f kDistortionK(1.00000, 0.22000, 0.24000, 0.00000);
+    Vector4f kChromaAbCorrection(0.99600, -0.00400, 1.01400, 0.00000);
 
-    float aspect = (float)s_config->width / s_config->height;
-    Matrixf projMatrix = Matrixf::Frustum(DegToRad(50.0f), aspect, 10.0, 10000);
-    Matrixf modelMatrix = Matrixf::ScaleQuatTrans(Vector3f(0.25, -0.25, 0.25), Quatf::Identity(), Vector3f(-s_config->width/2.0f, s_config->height/2.0f, 0) * 0.25f);
-
-    RenderBegin();
-
-    RenderFloor(projMatrix, viewMatrix, -100.0f);
-
-    RenderTextBegin(projMatrix, viewMatrix, modelMatrix);
-    for (size_t i = 0; i < s_context.textCount; i++) {
-        const GB_Text* text = s_context.text[i];
-        RenderText(text->glyph_quads, text->num_glyph_quads);
+    if (s_pHMD) {
+        OVR::HMDInfo hmd;
+        if (s_pHMD->GetDeviceInfo(&hmd)) {
+            kHResolution = hmd.HResolution;
+            kVResolution = hmd.VResolution;
+            kHScreenSize = hmd.HScreenSize;
+            kVScreenSize = hmd.VScreenSize;
+            kVScreenCenter = hmd.VScreenCenter;
+            kEyeToScreenDistance = hmd.EyeToScreenDistance;
+            kLensSeparationDistance = hmd.LensSeparationDistance;
+            kInterpupillaryDistance = hmd.InterpupillaryDistance;
+            kDistortionK = Vector4f(hmd.DistortionK[0], hmd.DistortionK[1], hmd.DistortionK[2], hmd.DistortionK[3]);
+            kChromaAbCorrection = Vector4f(hmd.ChromaAbCorrection[0], hmd.ChromaAbCorrection[1], hmd.ChromaAbCorrection[2], hmd.ChromaAbCorrection[3]);
+        }
     }
-    RenderTextEnd();
 
-    RenderEnd();
+    // Compute Aspect Ratio. Stereo mode cuts width in half.
+    float aspect = float(kHResolution * 0.5f) / float(kVResolution);
+
+    // Compute Vertical FOV based on distance.
+    float halfScreenDistance = (kVScreenSize / 2);
+    float yfov = 2.0f * atan(halfScreenDistance/kEyeToScreenDistance);
+
+    // Post-projection viewport coordinates range from (-1.0, 1.0), with the
+    // center of the left viewport falling at (1/4) of horizontal screen size.
+    // We need to shift this projection center to match with the lens center.
+    // We compute this shift in physical units (meters) to correct
+    // for different screen sizes and then rescale to viewport coordinates.
+    float eyeProjectionShift     = kHScreenSize * 0.25f - kLensSeparationDistance*0.5f;
+    float projectionCenterOffset = 4.0f * eyeProjectionShift / kHScreenSize;
+
+    // Projection matrix for the "center eye", which the left/right matrices are based on.
+    Matrixf projCenter = Matrixf::Frustum(yfov, aspect, 10.0f, 10000.0f);
+    Matrixf projLeft   = Matrixf::Trans(Vector3f(projectionCenterOffset, 0, 0)) * projCenter;
+    Matrixf projRight  = Matrixf::Trans(Vector3f(-projectionCenterOffset, 0, 0)) * projCenter;
+
+    OVR::Quatf q = s_SFusion.GetOrientation();
+    Matrixf cameraMatrix = Matrixf::QuatTrans(Quatf(q.x, q.y, q.z, q.w),
+                                              Vector3f(0, 6 * kFeetToCm, 0));
+    Matrixf viewCenter = cameraMatrix.OrthoInverse();
+
+    // View transformation translation in world units.
+    float    halfIPD   = kInterpupillaryDistance * 0.5f * kMetersToCm;
+    Matrixf viewLeft   = Matrixf::Trans(Vector3f(halfIPD, 0, 0)) * viewCenter;
+    Matrixf viewRight  = Matrixf::Trans(Vector3f(-halfIPD, 0, 0)) * viewCenter;
+
+    for (int i = 0; i < 2; i++) {
+
+        bool left = i == 0;
+
+        if (left) {
+            glViewport(0, 0, kHResolution / 2, kVResolution);
+        } else {
+            glViewport(kHResolution / 2, 0, kHResolution / 2, kVResolution);
+        }
+
+        if (left) {
+            glViewport(0, 0, kHResolution / 2, kVResolution);
+        } else {
+            glViewport(kHResolution / 2, 0, kHResolution / 2, kVResolution);
+        }
+
+        Matrixf projMatrix = left ? projLeft : projRight;
+        Matrixf viewMatrix = left ? viewLeft : viewRight;
+
+        Matrixf modelMatrix = Matrixf::ScaleQuatTrans(Vector3f(1, -1, 1),
+                                                      Quatf::AxisAngle(Vector3f(0, 1, 0), 0),
+                                                      Vector3f(-10 * kFeetToCm,
+                                                               25 * kFeetToCm,
+                                                               -10 * kFeetToCm));
+        RenderBegin();
+
+        RenderFloor(projMatrix, viewMatrix, 0.0f);
+
+        RenderTextBegin(projMatrix, viewMatrix, modelMatrix);
+        for (size_t i = 0; i < s_context.textCount; i++) {
+            const GB_Text* text = s_context.text[i];
+            RenderText(text->glyph_quads, text->num_glyph_quads);
+        }
+        RenderTextEnd();
+
+        RenderEnd();
+    }
 
     SDL_GL_SwapBuffers();
 }
@@ -85,7 +209,7 @@ int main(int argc, char* argv[])
     const SDL_VideoInfo* videoInfo = SDL_GetVideoInfo();
 
     // TODO: get this from config file.
-    s_config = new AppConfig(false, false, 1280, 800);
+    s_config = new AppConfig(true, false, 1280, 800);
     AppConfig& config = *s_config;
     config.title = "riftty";
 
@@ -126,6 +250,8 @@ int main(int argc, char* argv[])
     glClearColor(s_clearColor.x, s_clearColor.y, s_clearColor.z, s_clearColor.w);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     SDL_GL_SwapBuffers();
+
+    RiftSetup();
 
     RenderInit();
 
@@ -219,6 +345,8 @@ int main(int argc, char* argv[])
 
     child_kill(true);
     win_shutdown();
+
+    RiftShutdown();
 
     return 0;
 }

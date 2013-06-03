@@ -2,7 +2,7 @@
 
 require 'rake/clean'
 
-$CC = 'gcc'
+$CC = 'llvm-gcc'
 
 # used by tags task
 class Dir
@@ -28,7 +28,9 @@ $C_FLAGS = ['-Wall',
             "-Iglyphblaster/src",
             "-Iabaci/src",
             "-Imintty/",
+            "-I../OculusSDK/LibOVR/Include",
             "-fnested-functions",  # mintty needs this.
+            "-fno-rtti",
            ]
 
 $DEBUG_C_FLAGS = ['-g',
@@ -43,10 +45,13 @@ $L_FLAGS = [`sdl-config --libs`.chomp,
             '-lstdc++',
             '-lharfbuzz',
             '-licuuc',
+            "-L../OculusSDK/LibOVR/Lib/MacOS/Release/",
+            "-lovr",
             '-framework Cocoa',
             '-framework OpenGL',
             '-framework CoreServices',
-            '-framework ApplicationServices'
+            '-framework ApplicationServices',
+            '-framework IOKit'
            ]
 
 $OBJECTS = ['darwin/SDLMain.o',
