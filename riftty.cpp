@@ -38,7 +38,7 @@ void Process(float dt)
 const float kFeetToCm = 30.48;
 const float kInchesToCm = 2.54;
 
-void Render()
+void Render(float dt)
 {
     glClearColor(s_clearColor.x, s_clearColor.y, s_clearColor.z, s_clearColor.w);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -49,7 +49,7 @@ void Render()
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     static float t = 0.0;
-    t += 0.1;
+    t += dt;
 
     Matrixf cameraMatrix = Matrixf::LookAt(Vector3f(50 * sin(t), 50 * cos(t), 500), Vector3f(0, 0, 0), Vector3f(0, 1, 0));
     Matrixf viewMatrix = s_RotY90 * cameraMatrix.OrthoInverse();
@@ -58,6 +58,10 @@ void Render()
     Matrixf projMatrix = Matrixf::Frustum(DegToRad(50.0f), aspect, 10.0, 10000);
     Matrixf modelMatrix = Matrixf::ScaleQuatTrans(Vector3f(0.25, -0.25, 0.25), Quatf::Identity(), Vector3f(-s_config->width/2.0f, s_config->height/2.0f, 0) * 0.25f);
 
+    RenderBegin();
+
+    RenderFloor(projMatrix, viewMatrix, -100.0f);
+
     RenderTextBegin(projMatrix, viewMatrix, modelMatrix);
     for (size_t i = 0; i < s_context.textCount; i++) {
         const GB_Text* text = s_context.text[i];
@@ -65,7 +69,7 @@ void Render()
     }
     RenderTextEnd();
 
-    RenderFloor(projMatrix, viewMatrix, -100.0f);
+    RenderEnd();
 
     SDL_GL_SwapBuffers();
 }
@@ -81,7 +85,7 @@ int main(int argc, char* argv[])
     const SDL_VideoInfo* videoInfo = SDL_GetVideoInfo();
 
     // TODO: get this from config file.
-    s_config = new AppConfig(false, false, 1024, 768);
+    s_config = new AppConfig(false, false, 1280, 800);
     AppConfig& config = *s_config;
     config.title = "riftty";
 
@@ -206,8 +210,10 @@ int main(int argc, char* argv[])
             float dt = (now - s_ticks) / 1000.0f;	// convert to seconds.
             s_ticks = now;
 
+            //printf("fps = %.0f\n", 1.0f/dt);
+
             Process(dt);
-            Render();
+            Render(dt);
         }
     }
 

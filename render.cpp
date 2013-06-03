@@ -63,7 +63,7 @@ static GLint CreateCheckerTexture()
     const int W = 512;
     const uint8_t O = 100;
     const uint8_t X = 255;
-    static uint8_t checker[W * W];
+    uint8_t* checker = new uint8_t[W * W];
     int i, j;
     for (i = 0; i < W; i++) {
         for (j = 0; j < W; j++) {
@@ -82,6 +82,7 @@ static GLint CreateCheckerTexture()
     }
 
     glTexImage2D(GL_TEXTURE_2D, 0, GL_LUMINANCE, W, W, 0, GL_LUMINANCE, GL_UNSIGNED_BYTE, checker);
+    delete [] checker;
     return retVal;
 }
 
@@ -116,20 +117,29 @@ static Vector4f UintColorToVector4(uint32_t color)
                     ((color >> 24) & 0xff) / 255.0f);
 }
 
+void RenderBegin()
+{
+    s_prevShader = 0;
+}
+
+void RenderEnd()
+{
+
+}
+
 void RenderTextBegin(const Matrixf& projMatrix, const Matrixf& viewMatrix, const Matrixf& modelMatrix)
 {
     Matrixf fullMatrix = projMatrix * viewMatrix * modelMatrix;
     s_fullbrightShader->setMat(fullMatrix);
     s_fullbrightTexturedShader->setMat(fullMatrix);
-
-    s_prevShader = 0;
 }
 
 void RenderText(GB_GlyphQuad* quads, uint32_t num_quads)
 {
-    // TODO: queue these up, so we can submit it batches.
+    static uint16_t indices[] = {0, 2, 1, 2, 3, 1};
 
-    for (uint32_t i = 0; i < num_quads; ++i)
+    uint32_t i = 0;
+    for (i = 0; i < num_quads; ++i)
     {
         const WIN_TextUserData* data = (const WIN_TextUserData*)quads[i].user_data;
 
@@ -149,8 +159,11 @@ void RenderText(GB_GlyphQuad* quads, uint32_t num_quads)
         s_fullbrightShader->apply(s_prevShader, pos);
         s_prevShader = s_fullbrightShader;
 
-        static uint16_t indices[] = {0, 2, 1, 2, 3, 1};
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, indices);
+    }
+
+    for (i = 0; i < num_quads; i++) {
+        const WIN_TextUserData* data = (const WIN_TextUserData*)quads[i].user_data;
 
         if (quads[i].size[0] > 0 && quads[i].size[1] > 0)
         {
