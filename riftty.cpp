@@ -36,6 +36,8 @@ OVR::Ptr<OVR::DeviceManager> s_pManager;
 OVR::Ptr<OVR::HMDDevice> s_pHMD;
 OVR::Ptr<OVR::SensorDevice> s_pSensor;
 OVR::SensorFusion s_SFusion;
+OVR::Util::Render::StereoConfig s_SConfig;
+float s_distortionScale;
 
 void DumpHMDInfo(const OVR::HMDInfo& hmd)
 {
@@ -50,6 +52,8 @@ void DumpHMDInfo(const OVR::HMDInfo& hmd)
     printf("DistortionK = (%.5f, %.5f, %.5f, %.5f)\n", hmd.DistortionK[0], hmd.DistortionK[1], hmd.DistortionK[2], hmd.DistortionK[3]);
     printf("ChromaAbCorrection = (%.5f, %.5f, %.5f, %.5f)\n", hmd.ChromaAbCorrection[0], hmd.ChromaAbCorrection[1], hmd.ChromaAbCorrection[2], hmd.ChromaAbCorrection[3]);
 }
+
+void CreateRenderTarget();
 
 void RiftSetup()
 {
@@ -66,11 +70,36 @@ void RiftSetup()
         }
 
         s_pSensor = *s_pHMD->GetSensor();
-        if (s_pSensor)
+        if (s_pSensor) {
             s_SFusion.AttachToSensor(s_pSensor);
+            s_SFusion.SetPredictionEnabled(true);
+        }
+
+        s_SConfig.SetFullViewport(OVR::Util::Render::Viewport(0,0, hmd.HResolution, hmd.VResolution));
+        s_SConfig.SetStereoMode(OVR::Util::Render::Stereo_LeftRight_Multipass);
+
+        // Configure proper Distortion Fit.
+        // For 7" screen, fit to touch left side of the view, leaving a bit of invisible
+        // screen on the top (saves on rendering cost).
+        // For smaller screens (5.5"), fit to the top.
+        if (hmd.HScreenSize > 0.0f) {
+            if (hmd.HScreenSize > 0.140f) { // 7"
+                s_SConfig.SetDistortionFitPointVP(-1.0f, 0.0f);
+            } else {
+                s_SConfig.SetDistortionFitPointVP(0.0f, 1.0f);
+            }
+        }
+
+        printf("distortion scale = %.5f\n", s_SConfig.GetDistortionScale());
+        s_distortionScale = s_SConfig.GetDistortionScale();
+
     } else {
+        s_distortionScale = 1.71461f;
+
         fprintf(stderr, "NO RIFT FOUND\n");
     }
+
+    CreateRenderTarget();
 }
 
 void RiftShutdown()
@@ -198,6 +227,63 @@ void Render(float dt)
     SDL_GL_SwapBuffers();
 }
 
+void CreateRenderTarget()
+{
+    float kHResolution = s_config->width;
+    float kVResolution = s_config->height;
+
+    if (s_pHMD) {
+        OVR::HMDInfo hmd;
+        if (s_pHMD->GetDeviceInfo(&hmd)) {
+            kHResolution = hmd.HResolution;
+            kVResolution = hmd.VResolution;
+        }
+    }
+
+    int rtWidth = (int)ceil(s_distortionScale * kHResolution);
+    int rtHeight = (int)ceil(s_distortionScale * kVResolution);
+
+    printf("Render Target size %d x %d\n", rtWidth, rtHeight);
+
+    GLuint s_fbo;
+    GLuint s_fboDepth;
+    GLuint s_fboTex;
+
+    // create a fbo
+    glGenFramebuffers(1, &s_fbo);
+
+    // create a depth buffer
+    glGenRenderbuffers(1, &s_fboDepth);
+
+    // bind fbo
+    glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
+
+    glGenTextures(1, &s_fboTex);
+    glBindTexture(GL_TEXTURE_2D, s_fboTex);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_LINEAR);
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, rtWidth, rtHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, 0);
+
+    // attach texture to fbo
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                           GL_TEXTURE_2D, s_fboTex, 0);
+
+    // init depth buffer
+    glBindRenderbuffer(GL_RENDERBUFFER, s_fboDepth);
+
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, rtWidth, rtHeight);
+
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, s_fboDepth);
+
+    // check status
+    assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
 int main(int argc, char* argv[])
 {
     if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK) < 0)
@@ -209,7 +295,7 @@ int main(int argc, char* argv[])
     const SDL_VideoInfo* videoInfo = SDL_GetVideoInfo();
 
     // TODO: get this from config file.
-    s_config = new AppConfig(true, false, 1280, 800);
+    s_config = new AppConfig(false, false, 1280, 800);
     AppConfig& config = *s_config;
     config.title = "riftty";
 
