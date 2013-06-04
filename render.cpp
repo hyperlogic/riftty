@@ -44,6 +44,7 @@ void GLErrorCheck(const char* message)
 
 FullbrightShader* s_fullbrightShader = 0;
 FullbrightTexturedShader* s_fullbrightTexturedShader = 0;
+FullbrightTexturedShader* s_fullbrightTexturedTextShader = 0;
 PhongTexturedShader* s_phongTexturedShader = 0;
 Shader* s_prevShader = 0;
 GLuint s_checker = 0;
@@ -56,8 +57,10 @@ static GLint CreateCheckerTexture()
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_LINEAR);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
     const int W = 512;
@@ -94,7 +97,11 @@ void RenderInit()
 
     s_fullbrightTexturedShader = new FullbrightTexturedShader();
     s_fullbrightTexturedShader->compileAndLinkFromFiles("shader/fullbright_textured.vsh",
-                                                       "shader/fullbright_textured_text.fsh");
+                                                        "shader/fullbright_textured.fsh");
+
+    s_fullbrightTexturedTextShader = new FullbrightTexturedShader();
+    s_fullbrightTexturedTextShader->compileAndLinkFromFiles("shader/fullbright_textured.vsh",
+                                                            "shader/fullbright_textured_text.fsh");
 
     s_phongTexturedShader = new PhongTexturedShader();
     s_phongTexturedShader->compileAndLinkFromFiles("shader/phong_textured.vsh",
@@ -107,6 +114,7 @@ void RenderShutdown()
 {
     delete s_fullbrightShader;
     delete s_fullbrightTexturedShader;
+    delete s_fullbrightTexturedTextShader;
 }
 
 static Vector4f UintColorToVector4(uint32_t color)
@@ -132,6 +140,7 @@ void RenderTextBegin(const Matrixf& projMatrix, const Matrixf& viewMatrix, const
     Matrixf fullMatrix = projMatrix * viewMatrix * modelMatrix;
     s_fullbrightShader->setMat(fullMatrix);
     s_fullbrightTexturedShader->setMat(fullMatrix);
+    s_fullbrightTexturedTextShader->setMat(fullMatrix);
 }
 
 void RenderText(GB_GlyphQuad* quads, uint32_t num_quads)
@@ -178,10 +187,10 @@ void RenderText(GB_GlyphQuad* quads, uint32_t num_quads)
                 origin.x + size.x, origin.y + size.y, 10, uv_origin.x + uv_size.x, uv_origin.y + uv_size.y
             };
 
-            s_fullbrightTexturedShader->setColor(UintColorToVector4(data->fg_color));
-            s_fullbrightTexturedShader->setTex(quads[i].gl_tex_obj);
-            s_fullbrightTexturedShader->apply(s_prevShader, attrib);
-            s_prevShader = s_fullbrightTexturedShader;
+            s_fullbrightTexturedTextShader->setColor(UintColorToVector4(data->fg_color));
+            s_fullbrightTexturedTextShader->setTex(quads[i].gl_tex_obj);
+            s_fullbrightTexturedTextShader->apply(s_prevShader, attrib);
+            s_prevShader = s_fullbrightTexturedTextShader;
 
             glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, indices);
         }
@@ -242,6 +251,28 @@ void RenderFloor(const Matrixf& projMatrix, const Matrixf& viewMatrix, float hei
         0 + kOffset, 0, 0 + kOffset, 0 + kTexOffset, 0 + kTexOffset, 0, 1, 0
     };
     s_phongTexturedShader->apply(s_prevShader, attrib);
+
+    static uint16_t indices[] = {0, 2, 1, 2, 3, 1};
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, indices);
+}
+
+void RenderFullScreenQuad(GLuint texture, int width, int height)
+{
+    Matrixf projMatrix = Matrixf::Ortho(0, width, 0, height, -1, 1);
+
+    s_fullbrightTexturedShader->setMat(projMatrix);
+    s_fullbrightTexturedShader->setColor(Vector4f(1, 1, 1, 1));
+    s_fullbrightTexturedShader->setTex(texture);
+
+    float attrib[20] = {
+        0, 0, 0, 0, 0,
+        width, 0, 0, 1, 0,
+        0, height, 0, 0, 1,
+        width, height, 0, 1, 1
+    };
+
+    s_fullbrightTexturedShader->apply(s_prevShader, attrib);
+    s_prevShader = s_fullbrightTexturedShader;
 
     static uint16_t indices[] = {0, 2, 1, 2, 3, 1};
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, indices);

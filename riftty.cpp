@@ -39,6 +39,10 @@ OVR::SensorFusion s_SFusion;
 OVR::Util::Render::StereoConfig s_SConfig;
 float s_distortionScale;
 
+uint32_t s_fbo;
+uint32_t s_fboDepth;
+uint32_t s_fboTex;
+
 void DumpHMDInfo(const OVR::HMDInfo& hmd)
 {
     printf("HResolution = %u\n", hmd.HResolution);
@@ -118,6 +122,9 @@ const float kMetersToCm = 100.0;
 
 void Render(float dt)
 {
+    // render into fbo
+    glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
+
     glClearColor(s_clearColor.x, s_clearColor.y, s_clearColor.z, s_clearColor.w);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -224,6 +231,17 @@ void Render(float dt)
         RenderEnd();
     }
 
+    // now render a full screen quad using the fbo as a texture
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    glClearColor(s_clearColor.x, s_clearColor.y, s_clearColor.z, s_clearColor.w);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    glViewport(0, 0, kHResolution, kVResolution);
+    RenderFullScreenQuad(s_fboTex, kHResolution, kVResolution);
+
+    GL_ERROR_CHECK("Render");
+
     SDL_GL_SwapBuffers();
 }
 
@@ -240,31 +258,36 @@ void CreateRenderTarget()
         }
     }
 
-    int rtWidth = (int)ceil(s_distortionScale * kHResolution);
-    int rtHeight = (int)ceil(s_distortionScale * kVResolution);
+    int rtWidth = kHResolution;//(int)ceil(s_distortionScale * kHResolution);
+    int rtHeight = kVResolution;//(int)ceil(s_distortionScale * kVResolution);
 
     printf("Render Target size %d x %d\n", rtWidth, rtHeight);
-
-    GLuint s_fbo;
-    GLuint s_fboDepth;
-    GLuint s_fboTex;
 
     // create a fbo
     glGenFramebuffers(1, &s_fbo);
 
+    GL_ERROR_CHECK("RenderTargetInit1");
+
     // create a depth buffer
     glGenRenderbuffers(1, &s_fboDepth);
 
+    GL_ERROR_CHECK("RenderTargetInit2");
+
     // bind fbo
     glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
+
+    GL_ERROR_CHECK("RenderTargetInit3");
 
     glGenTextures(1, &s_fboTex);
     glBindTexture(GL_TEXTURE_2D, s_fboTex);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_LINEAR);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, rtWidth, rtHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, 0);
 
     // attach texture to fbo
@@ -281,7 +304,7 @@ void CreateRenderTarget()
     // check status
     assert(glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE);
 
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    GL_ERROR_CHECK("RenderTargetInit");
 }
 
 int main(int argc, char* argv[])
@@ -292,7 +315,7 @@ int main(int argc, char* argv[])
     atexit(SDL_Quit);
 
     // Get the current desktop width & height
-    const SDL_VideoInfo* videoInfo = SDL_GetVideoInfo();
+    //const SDL_VideoInfo* videoInfo = SDL_GetVideoInfo();
 
     // TODO: get this from config file.
     s_config = new AppConfig(false, false, 1280, 800);

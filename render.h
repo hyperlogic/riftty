@@ -15,6 +15,8 @@ void RenderTextEnd();
 
 void RenderFloor(const Matrixf& projMatrix, const Matrixf& viewMatrix, float height);
 
+void RenderFullScreenQuad(uint32_t texture, int width, int height);
+
 #ifdef DEBUG
 #define GL_ERROR_CHECK(x) GLErrorCheck(x)
 void GLErrorCheck(const char* message);
