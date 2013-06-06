@@ -7,3 +7,4 @@ TAGS
 FullbrightShader.h
 FullbrightTexturedShader.h
 PhongTexturedShader.h
+OculusShader.h

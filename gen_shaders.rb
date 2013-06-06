@@ -15,7 +15,7 @@ end
 
 class Object
   def camelcase
-    to_s.split('_').map(&:capitalize).join
+    to_s.split('_').map() {|s| s[0,1].upcase + s[1..-1]}.join
   end
 end
 
@@ -227,19 +227,22 @@ class Prog < Struct.new(:name, :vsh, :fsh, :uniforms, :attribs)
 end
 
 progs = [Prog.new("fullbright_shader",
-                  "shader/fullbright.vsh", "shader/fullbright.fsh",
+                  "shader/fullbright.vsh",
+                  "shader/fullbright.fsh",
                   [BasicType.new(:vec4, :color),
                    BasicType.new(:mat4, :mat)],
                   [BasicType.new(:vec3, :pos)]),
          Prog.new("fullbright_textured_shader",
-                  "shader/fullbright_textured.vsh", "shader/fullbright_textured_text.fsh",
+                  "shader/fullbright_textured.vsh",
+                  "shader/fullbright_textured_text.fsh",
                   [BasicType.new(:vec4, :color),
                    BasicType.new(:mat4, :mat),
                    BasicType.new(:sampler2D, :tex)],
                   [BasicType.new(:vec3, :pos),
                    BasicType.new(:vec2, :uv)]),
          Prog.new("phong_textured_shader",
-                  "shader/phong_textured.vsh", "shader/phong_textured.fsh",
+                  "shader/phong_textured.vsh",
+                  "shader/phong_textured.fsh",
                   [BasicType.new(:vec4, :color),
                    BasicType.new(:mat4, :full_mat),
                    BasicType.new(:mat4, :world_mat),
@@ -251,7 +254,20 @@ progs = [Prog.new("fullbright_shader",
                    ArrayType.new(:float, :light_strength, 8)],
                   [BasicType.new(:vec3, :pos),
                    BasicType.new(:vec2, :uv),
-                   BasicType.new(:vec3, :normal)])
+                   BasicType.new(:vec3, :normal)]),
+         Prog.new("oculus_shader",
+                  "shader/oculus.vsh",
+                  "shader/oculus-simple.fsh",
+                  [BasicType.new(:mat4, :View),
+                   BasicType.new(:mat4, :Texm),
+                   BasicType.new(:vec2, :LensCenter),
+                   BasicType.new(:vec2, :ScreenCenter),
+                   BasicType.new(:vec2, :Scale),
+                   BasicType.new(:vec2, :ScaleIn),
+                   BasicType.new(:vec4, :HmdWarpParam),
+                   BasicType.new(:sampler2D, :Texture0)],
+                  [BasicType.new(:vec4, :Position),
+                   BasicType.new(:vec2, :TexCoord)])
         ]
 
 progs.each do |prog|

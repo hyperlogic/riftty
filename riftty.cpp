@@ -193,20 +193,17 @@ void Render(float dt)
     Matrixf viewLeft   = Matrixf::Trans(Vector3f(halfIPD, 0, 0)) * viewCenter;
     Matrixf viewRight  = Matrixf::Trans(Vector3f(-halfIPD, 0, 0)) * viewCenter;
 
+    int rtWidth = (int)ceil(s_distortionScale * kHResolution);
+    int rtHeight = (int)ceil(s_distortionScale * kVResolution);
+
     for (int i = 0; i < 2; i++) {
 
         bool left = i == 0;
 
         if (left) {
-            glViewport(0, 0, kHResolution / 2, kVResolution);
+            glViewport(0, 0, rtWidth / 2, rtHeight);
         } else {
-            glViewport(kHResolution / 2, 0, kHResolution / 2, kVResolution);
-        }
-
-        if (left) {
-            glViewport(0, 0, kHResolution / 2, kVResolution);
-        } else {
-            glViewport(kHResolution / 2, 0, kHResolution / 2, kVResolution);
+            glViewport(rtWidth / 2, 0, rtWidth / 2, rtHeight);
         }
 
         Matrixf projMatrix = left ? projLeft : projRight;
@@ -237,8 +234,12 @@ void Render(float dt)
     glClearColor(s_clearColor.x, s_clearColor.y, s_clearColor.z, s_clearColor.w);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+    /*
     glViewport(0, 0, kHResolution, kVResolution);
     RenderFullScreenQuad(s_fboTex, kHResolution, kVResolution);
+    */
+    RenderPostProcessWarp(s_SConfig, s_fboTex, 1);
+    RenderPostProcessWarp(s_SConfig, s_fboTex, 0);
 
     GL_ERROR_CHECK("Render");
 
@@ -258,8 +259,8 @@ void CreateRenderTarget()
         }
     }
 
-    int rtWidth = kHResolution;//(int)ceil(s_distortionScale * kHResolution);
-    int rtHeight = kVResolution;//(int)ceil(s_distortionScale * kVResolution);
+    int rtWidth = (int)ceil(s_distortionScale * kHResolution);
+    int rtHeight = (int)ceil(s_distortionScale * kVResolution);
 
     printf("Render Target size %d x %d\n", rtWidth, rtHeight);
 

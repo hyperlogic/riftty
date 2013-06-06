@@ -7,6 +7,7 @@
 #include "FullbrightShader.h"
 #include "FullbrightTexturedShader.h"
 #include "PhongTexturedShader.h"
+#include "OculusShader.h"
 
 #ifdef DEBUG
 // If there is a glError this outputs it along with a message to stderr.
@@ -46,6 +47,7 @@ FullbrightShader* s_fullbrightShader = 0;
 FullbrightTexturedShader* s_fullbrightTexturedShader = 0;
 FullbrightTexturedShader* s_fullbrightTexturedTextShader = 0;
 PhongTexturedShader* s_phongTexturedShader = 0;
+OculusShader* s_oculusShader = 0;
 Shader* s_prevShader = 0;
 GLuint s_checker = 0;
 
@@ -106,6 +108,10 @@ void RenderInit()
     s_phongTexturedShader = new PhongTexturedShader();
     s_phongTexturedShader->compileAndLinkFromFiles("shader/phong_textured.vsh",
                                                    "shader/phong_textured.fsh");
+
+    s_oculusShader = new OculusShader();
+    s_oculusShader->compileAndLinkFromFiles("shader/oculus.vsh",
+                                            "shader/oculus-simple.fsh");
 
     s_checker = CreateCheckerTexture();
 }
@@ -273,6 +279,77 @@ void RenderFullScreenQuad(GLuint texture, int width, int height)
 
     s_fullbrightTexturedShader->apply(s_prevShader, attrib);
     s_prevShader = s_fullbrightTexturedShader;
+
+    static uint16_t indices[] = {0, 2, 1, 2, 3, 1};
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, indices);
+}
+
+void RenderPostProcessWarp(OVR::Util::Render::StereoConfig& sConfig, uint32_t texture, bool left)
+{
+    OVR::Util::Render::StereoEyeParams eyeParams = sConfig.GetEyeRenderParams(left ? OVR::Util::Render::StereoEye_Left : OVR::Util::Render::StereoEye_Right);
+    OVR::Util::Render::DistortionConfig dConfig = *eyeParams.pDistortion;
+
+    glViewport(eyeParams.VP.x, eyeParams.VP.y, eyeParams.VP.w, eyeParams.VP.h);
+    glEnable(GL_SCISSOR_TEST);
+    glScissor(eyeParams.VP.x, 0, eyeParams.VP.w, eyeParams.VP.h);
+    if (left)
+        glClearColor(1, 0, 0, 1);
+    else
+        glClearColor(0, 0, 1, 1);
+
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    float w = float(eyeParams.VP.w) / float(sConfig.GetFullViewport().w),
+          h = float(eyeParams.VP.h) / float(sConfig.GetFullViewport().h),
+          x = float(eyeParams.VP.x) / float(sConfig.GetFullViewport().w),
+          y = float(eyeParams.VP.y) / float(sConfig.GetFullViewport().h);
+
+    float as = (float)eyeParams.VP.w / (float)eyeParams.VP.h;
+
+    // We are using 1/4 of DistortionCenter offset value here, since it is
+    // relative to [-1,1] range that gets mapped to [0, 0.5].
+    s_oculusShader->setLensCenter(Vector2f(x + (w + dConfig.XCenterOffset * 0.5f)*0.5f,
+                                           y + h*0.5f));
+
+    s_oculusShader->setScreenCenter(Vector2f(x + w*0.5f, y + h*0.5f));
+
+    // MA: This is more correct but we would need higher-res texture vertically; we should adopt this
+    // once we have asymmetric input texture scale.
+    float scaleFactor = 1.0f / dConfig.Scale;
+
+    s_oculusShader->setScale(Vector2f((w/2) * scaleFactor, (h/2) * scaleFactor * as));
+    s_oculusShader->setScaleIn(Vector2f((2/w), (2/h) / as));
+    s_oculusShader->setHmdWarpParam(Vector4f(dConfig.K[0], dConfig.K[1], dConfig.K[2], dConfig.K[3]));
+
+#if 0
+        s_oculusShader->setChromAbParam(Vector4f(dConfig.ChromaticAberration[0],
+                                                 dConfig.ChromaticAberration[1],
+                                                 dConfig.ChromaticAberration[2],
+                                                 dConfig.ChromaticAberration[3]));
+#endif
+
+    Matrixf texm = Matrixf::Rows(Vector4f(w, 0, 0, x),
+                                 Vector4f(0, h, 0, y),
+                                 Vector4f(0, 0, 0, 0),
+                                 Vector4f(0, 0, 0, 1));
+    s_oculusShader->setTexm(texm);
+
+    Matrixf view = Matrixf::Rows(Vector4f(2, 0, 0, -1),
+                                 Vector4f(0, 2, 0, -1),
+                                 Vector4f(0, 0, 0, 0),
+                                 Vector4f(0, 0, 0, 1));
+    s_oculusShader->setView(view);
+    s_oculusShader->setTexture0(texture);
+
+    float attrib[6 * 4] = {
+        0, 0, 0, 0, 0, 0,
+        1, 0, 0, 0, 1, 0,
+        0, 1, 0, 0, 0, 1,
+        1, 1, 0, 0, 1, 1
+    };
+
+    s_oculusShader->apply(s_prevShader, attrib);
+    s_prevShader = s_oculusShader;
 
     static uint16_t indices[] = {0, 2, 1, 2, 3, 1};
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, indices);

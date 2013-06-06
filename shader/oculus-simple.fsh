@@ -12,8 +12,9 @@ vec2 HmdWarp(vec2 in01)
 {
     vec2  theta = (in01 - LensCenter) * ScaleIn; // Scales to [-1, 1]
     float rSq = theta.x * theta.x + theta.y * theta.y;
-    vec2  theta1 = theta * (HmdWarpParam.x + HmdWarpParam.y * rSq 
-                            HmdWarpParam.z * rSq * rSq + HmdWarpParam.w * rSq * rSq * rSq);
+    vec2  theta1 = theta * (HmdWarpParam.x + HmdWarpParam.y * rSq +
+                            HmdWarpParam.z * rSq * rSq +
+                            HmdWarpParam.w * rSq * rSq * rSq);
     return LensCenter + Scale * theta1;
 }
 void main()

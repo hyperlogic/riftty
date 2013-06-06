@@ -3,6 +3,7 @@
 
 #include "abaci.h"
 #include "gb_text.h"
+#include "OVR.h"
 
 void RenderInit();
 
@@ -16,6 +17,7 @@ void RenderTextEnd();
 void RenderFloor(const Matrixf& projMatrix, const Matrixf& viewMatrix, float height);
 
 void RenderFullScreenQuad(uint32_t texture, int width, int height);
+void RenderPostProcessWarp(OVR::Util::Render::StereoConfig& stereoConfig, uint32_t texture, bool left);
 
 #ifdef DEBUG
 #define GL_ERROR_CHECK(x) GLErrorCheck(x)
