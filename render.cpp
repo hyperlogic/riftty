@@ -348,14 +348,15 @@ void RenderPostProcessWarp(OVR::Util::Render::StereoConfig& sConfig, uint32_t te
                                  Vector4f(0, 2, 0, -1),
                                  Vector4f(0, 0, 0, 0),
                                  Vector4f(0, 0, 0, 1));
+
     s_oculusShader->setView(view);
     s_oculusShader->setTexture0(texture);
 
     float attrib[6 * 4] = {
-        0, 0, 0, 0, 0, 0,
-        1, 0, 0, 0, 1, 0,
-        0, 1, 0, 0, 0, 1,
-        1, 1, 0, 0, 1, 1
+        0, 0, 0, 1, 0, 0,
+        1, 0, 0, 1, 1, 0,
+        0, 1, 0, 1, 0, 1,
+        1, 1, 0, 1, 1, 1
     };
 
     s_oculusShader->apply(s_prevShader, attrib);

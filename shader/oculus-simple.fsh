@@ -21,7 +21,11 @@ void main()
 {
     vec2 tc = HmdWarp(oTexCoord);
     if (!all(equal(clamp(tc, ScreenCenter-vec2(0.25,0.5), ScreenCenter+vec2(0.25,0.5)), tc)))
+    {
         gl_FragColor = vec4(0);
+    }
     else
+    {
         gl_FragColor = texture2D(Texture0, tc);
+    }
 }
