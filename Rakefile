@@ -31,6 +31,7 @@ $C_FLAGS = ['-Wall',
             "-I../OculusSDK/LibOVR/Include",
             "-fnested-functions",  # mintty needs this.
             "-fno-rtti",
+            "-I/usr/local/Cellar/icu4c/51.1/include",
            ]
 
 $DEBUG_C_FLAGS = ['-g',
@@ -44,6 +45,7 @@ $L_FLAGS = [`sdl-config --libs`.chomp,
             `freetype-config --libs`.chomp,
             '-lstdc++',
             '-lharfbuzz',
+            "-L/usr/local/Cellar/icu4c/51.1/lib",
             '-licuuc',
             "-L../OculusSDK/LibOVR/Lib/MacOS/Release/",
             "-lovr",
