@@ -94,24 +94,34 @@ static GLint CreateCheckerTexture()
 void RenderInit()
 {
     s_fullbrightShader = new FullbrightShader();
-    s_fullbrightShader->compileAndLinkFromFiles("shader/fullbright.vsh",
-                                                "shader/fullbright.fsh");
+    bool success = s_fullbrightShader->compileAndLinkFromFiles("shader/fullbright.vsh",
+                                                               "shader/fullbright.fsh");
+    if (!success)
+        exit(EXIT_FAILURE);
 
     s_fullbrightTexturedShader = new FullbrightTexturedShader();
-    s_fullbrightTexturedShader->compileAndLinkFromFiles("shader/fullbright_textured.vsh",
-                                                        "shader/fullbright_textured.fsh");
+    success = s_fullbrightTexturedShader->compileAndLinkFromFiles("shader/fullbright_textured.vsh",
+                                                                  "shader/fullbright_textured.fsh");
+    if (!success)
+        exit(EXIT_FAILURE);
 
     s_fullbrightTexturedTextShader = new FullbrightTexturedShader();
-    s_fullbrightTexturedTextShader->compileAndLinkFromFiles("shader/fullbright_textured.vsh",
-                                                            "shader/fullbright_textured_text.fsh");
+    success = s_fullbrightTexturedTextShader->compileAndLinkFromFiles("shader/fullbright_textured.vsh",
+                                                                      "shader/fullbright_textured_text.fsh");
+    if (!success)
+        exit(EXIT_FAILURE);
 
     s_phongTexturedShader = new PhongTexturedShader();
-    s_phongTexturedShader->compileAndLinkFromFiles("shader/phong_textured.vsh",
-                                                   "shader/phong_textured.fsh");
+    success = s_phongTexturedShader->compileAndLinkFromFiles("shader/phong_textured.vsh",
+                                                             "shader/phong_textured.fsh");
+    if (!success)
+        exit(EXIT_FAILURE);
 
     s_oculusShader = new OculusShader();
-    s_oculusShader->compileAndLinkFromFiles("shader/oculus.vsh",
-                                            "shader/oculus-simple.fsh");
+    success = s_oculusShader->compileAndLinkFromFiles("shader/oculus.vsh",
+                                                      "shader/oculus-simple.fsh");
+    if (!success)
+        exit(EXIT_FAILURE);
 
     s_checker = CreateCheckerTexture();
 }
