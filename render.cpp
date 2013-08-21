@@ -167,8 +167,9 @@ void RenderText(GB_GlyphQuad* quads, uint32_t num_quads)
     for (i = 0; i < num_quads; ++i)
     {
         const WIN_TextUserData* data = (const WIN_TextUserData*)quads[i].user_data;
-
-        s_fullbrightShader->setColor(UintColorToVector4(data->bg_color) - Vector4f(0, 0, 0, -0.2));
+        Vector4f bg_color = UintColorToVector4(data->bg_color);
+        bg_color.w = 0.5;
+        s_fullbrightShader->setColor(bg_color);
 
         uint32_t y_offset = data->line_height / 3; // hack
         Vector2f origin = Vector2f(quads[i].pen[0], quads[i].pen[1] + y_offset);
@@ -187,6 +188,7 @@ void RenderText(GB_GlyphQuad* quads, uint32_t num_quads)
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, indices);
     }
 
+    const float kDepthOffset = 3.0f;
     for (i = 0; i < num_quads; i++) {
         const WIN_TextUserData* data = (const WIN_TextUserData*)quads[i].user_data;
 
@@ -197,10 +199,10 @@ void RenderText(GB_GlyphQuad* quads, uint32_t num_quads)
             Vector2f uv_origin = Vector2f(quads[i].uv_origin[0], quads[i].uv_origin[1]);
             Vector2f uv_size = Vector2f(quads[i].uv_size[0], quads[i].uv_size[1]);
             float attrib[20] = {
-                origin.x, origin.y, 10, uv_origin.x, uv_origin.y,
-                origin.x + size.x, origin.y, 10, uv_origin.x + uv_size.x, uv_origin.y,
-                origin.x, origin.y + size.y, 10, uv_origin.x, uv_origin.y + uv_size.y,
-                origin.x + size.x, origin.y + size.y, 10, uv_origin.x + uv_size.x, uv_origin.y + uv_size.y
+                origin.x, origin.y, kDepthOffset, uv_origin.x, uv_origin.y,
+                origin.x + size.x, origin.y, kDepthOffset, uv_origin.x + uv_size.x, uv_origin.y,
+                origin.x, origin.y + size.y, kDepthOffset, uv_origin.x, uv_origin.y + uv_size.y,
+                origin.x + size.x, origin.y + size.y, kDepthOffset, uv_origin.x + uv_size.x, uv_origin.y + uv_size.y
             };
 
             s_fullbrightTexturedTextShader->setColor(UintColorToVector4(data->fg_color));
@@ -259,7 +261,7 @@ void RenderFloor(const Matrixf& projMatrix, const Matrixf& viewMatrix, float hei
     }
 
     float kOffset = 1000.0f * kFeetToCm;
-    float kTexOffset = 200.0f;
+    float kTexOffset = 100.0f;
     float attrib[32] = {
         0 - kOffset, 0, 0 - kOffset, 0, 0, 0, 1, 0,
         0 + kOffset, 0, 0 - kOffset, 0 + kTexOffset, 0, 0, 1, 0,

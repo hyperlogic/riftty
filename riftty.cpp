@@ -6,6 +6,7 @@
 #include "appconfig.h"
 #include "render.h"
 #include "gb_context.h"
+#include "joystick.h"
 
 #include "abaci.h"
 
@@ -26,6 +27,10 @@ extern "C" {
 
 #include "OVR.h"
 
+const float kFeetToCm = 30.48;
+const float kInchesToCm = 2.54;
+const float kMetersToCm = 100.0;
+
 Vector4f s_clearColor(0, 0, 0.2, 1);
 
 // time tracking
@@ -42,6 +47,8 @@ float s_distortionScale;
 uint32_t s_fbo;
 uint32_t s_fboDepth;
 uint32_t s_fboTex;
+
+Vector3f s_cameraPos(0, 6 * kFeetToCm, 0);
 
 void DumpHMDInfo(const OVR::HMDInfo& hmd)
 {
@@ -113,12 +120,15 @@ void RiftShutdown()
 
 void Process(float dt)
 {
+    float kSpeed = 150.0f;
+    Joystick* joy = JOYSTICK_GetJoystick();
+    Vector3f vel(joy->axes[Joystick::LeftStickX],
+                 joy->axes[Joystick::RightStickY],
+                 -joy->axes[Joystick::LeftStickY]);
+    s_cameraPos = s_cameraPos + vel * dt * kSpeed;
+
     child_poll();
 }
-
-const float kFeetToCm = 30.48;
-const float kInchesToCm = 2.54;
-const float kMetersToCm = 100.0;
 
 void Render(float dt)
 {
@@ -182,7 +192,7 @@ void Render(float dt)
 
     OVR::Quatf q = s_SFusion.GetOrientation();
     Matrixf cameraMatrix = Matrixf::QuatTrans(Quatf(q.x, q.y, q.z, q.w),
-                                              Vector3f(0, 6 * kFeetToCm, 0));
+                                              s_cameraPos);
     Matrixf viewCenter = cameraMatrix.OrthoInverse();
 
     // View transformation translation in world units.
@@ -210,7 +220,8 @@ void Render(float dt)
         Matrixf projMatrix = left ? projLeft : projRight;
         Matrixf viewMatrix = left ? viewLeft : viewRight;
 
-        Matrixf modelMatrix = Matrixf::ScaleQuatTrans(Vector3f(1, -1, 1),
+        const float kTermScale = 0.43f;
+        Matrixf modelMatrix = Matrixf::ScaleQuatTrans(Vector3f(kTermScale, -kTermScale, kTermScale),
                                                       Quatf::AxisAngle(Vector3f(0, 1, 0), 0),
                                                       Vector3f(-10 * kFeetToCm,
                                                                25 * kFeetToCm,
@@ -312,6 +323,8 @@ int main(int argc, char* argv[])
 
     atexit(SDL_Quit);
 
+    JOYSTICK_Init();
+
     // Get the current desktop width & height
     //const SDL_VideoInfo* videoInfo = SDL_GetVideoInfo();
 
@@ -394,6 +407,8 @@ int main(int argc, char* argv[])
     int done = 0;
     while (!done)
     {
+        JOYSTICK_ClearFlags();
+
         SDL_Event event;
         while (SDL_PollEvent(&event))
         {
@@ -422,12 +437,12 @@ int main(int argc, char* argv[])
                 break;
 
             case SDL_JOYAXISMOTION:
-                // stick move
+                JOYSTICK_UpdateMotion(&event.jaxis);
                 break;
 
             case SDL_JOYBUTTONDOWN:
             case SDL_JOYBUTTONUP:
-                // joy pad press
+                JOYSTICK_UpdateButton(&event.jbutton);
                 break;
 
             case SDL_KEYDOWN:
@@ -454,6 +469,7 @@ int main(int argc, char* argv[])
     win_shutdown();
 
     RiftShutdown();
+    JOYSTICK_Shutdown();
 
     return 0;
 }

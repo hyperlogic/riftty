@@ -14,7 +14,7 @@ varying vec3 frag_world_normal;
 void main(void)
 {
     vec3 d;
-    vec3 accum = vec3(0, 0, 0);
+    vec3 accum = vec3(0.1, 0.1, 0.1);
     float len, att, len_over_str, intensity;
     int i;
     for (i = 0; i < num_lights; i++) {
