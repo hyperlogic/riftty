@@ -318,7 +318,8 @@ void RenderPostProcessWarp(OVR::Util::Render::StereoConfig& sConfig, uint32_t te
 
     // We are using 1/4 of DistortionCenter offset value here, since it is
     // relative to [-1,1] range that gets mapped to [0, 0.5].
-    s_oculusShader->setLensCenter(Vector2f(x + (w + dConfig.XCenterOffset * 0.5f)*0.5f,
+    float sign = left ? 1 : -1;
+    s_oculusShader->setLensCenter(Vector2f(x + (w + sign * dConfig.XCenterOffset * 0.5f)*0.5f,
                                            y + h*0.5f));
 
     s_oculusShader->setScreenCenter(Vector2f(x + w*0.5f, y + h*0.5f));
@@ -353,10 +354,10 @@ void RenderPostProcessWarp(OVR::Util::Render::StereoConfig& sConfig, uint32_t te
     s_oculusShader->setTexture0(texture);
 
     float attrib[6 * 4] = {
-        0, 0, 0, 1, 0, 0,
-        1, 0, 0, 1, 1, 0,
-        0, 1, 0, 1, 0, 1,
-        1, 1, 0, 1, 1, 1
+        0, 1, 0, 1, 0, 0,
+        1, 1, 0, 1, 1, 0,
+        0, 0, 0, 1, 0, 1,
+        1, 0, 0, 1, 1, 1
     };
 
     s_oculusShader->apply(s_prevShader, attrib);

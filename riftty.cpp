@@ -125,9 +125,6 @@ void Render(float dt)
     // render into fbo
     glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
 
-    glClearColor(s_clearColor.x, s_clearColor.y, s_clearColor.z, s_clearColor.w);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
     glEnable(GL_DEPTH_TEST);
     glDisable(GL_CULL_FACE);
     glEnable(GL_BLEND);
@@ -189,15 +186,19 @@ void Render(float dt)
     Matrixf viewCenter = cameraMatrix.OrthoInverse();
 
     // View transformation translation in world units.
-    float    halfIPD   = kInterpupillaryDistance * 0.5f * kMetersToCm;
-    Matrixf viewLeft   = Matrixf::Trans(Vector3f(halfIPD, 0, 0)) * viewCenter;
-    Matrixf viewRight  = Matrixf::Trans(Vector3f(-halfIPD, 0, 0)) * viewCenter;
+    float halfIPD = kInterpupillaryDistance * 0.5f * kMetersToCm;
+    Matrixf viewLeft = Matrixf::Trans(Vector3f(halfIPD, 0, 0)) * viewCenter;
+    Matrixf viewRight = Matrixf::Trans(Vector3f(-halfIPD, 0, 0)) * viewCenter;
 
     int rtWidth = (int)ceil(s_distortionScale * kHResolution);
     int rtHeight = (int)ceil(s_distortionScale * kVResolution);
 
-    for (int i = 0; i < 2; i++) {
+    glViewport(0, 0, rtWidth, rtHeight);
+    glDisable(GL_SCISSOR_TEST);
+    glClearColor(s_clearColor.x, s_clearColor.y, s_clearColor.z, s_clearColor.w);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+    for (int i = 0; i < 2; i++) {
         bool left = i == 0;
 
         if (left) {
@@ -234,12 +235,8 @@ void Render(float dt)
     glClearColor(s_clearColor.x, s_clearColor.y, s_clearColor.z, s_clearColor.w);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    /*
-    glViewport(0, 0, kHResolution, kVResolution);
-    RenderFullScreenQuad(s_fboTex, kHResolution, kVResolution);
-    */
-    RenderPostProcessWarp(s_SConfig, s_fboTex, 1);
-    RenderPostProcessWarp(s_SConfig, s_fboTex, 0);
+    RenderPostProcessWarp(s_SConfig, s_fboTex, true);
+    RenderPostProcessWarp(s_SConfig, s_fboTex, false);
 
     GL_ERROR_CHECK("Render");
 
@@ -319,7 +316,7 @@ int main(int argc, char* argv[])
     //const SDL_VideoInfo* videoInfo = SDL_GetVideoInfo();
 
     // TODO: get this from config file.
-    s_config = new AppConfig(false, false, 1280, 800);
+    s_config = new AppConfig(true, false, 1280, 800);
     AppConfig& config = *s_config;
     config.title = "riftty";
 
