@@ -186,7 +186,7 @@ void Render(float dt)
     float projectionCenterOffset = 4.0f * eyeProjectionShift / kHScreenSize;
 
     // Projection matrix for the "center eye", which the left/right matrices are based on.
-    Matrixf projCenter = Matrixf::Frustum(yfov, aspect, 10.0f, 10000.0f);
+    Matrixf projCenter = Matrixf::Frustum(yfov, aspect, 15.0f, 5000.0f);
     Matrixf projLeft   = Matrixf::Trans(Vector3f(projectionCenterOffset, 0, 0)) * projCenter;
     Matrixf projRight  = Matrixf::Trans(Vector3f(-projectionCenterOffset, 0, 0)) * projCenter;
 
