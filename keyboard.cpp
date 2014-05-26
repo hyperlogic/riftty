@@ -1,5 +1,5 @@
 #include "keyboard.h"
-#include <SDL/SDL.h>
+#include <SDL2/SDL.h>
 #include <termios.h>
 
 extern "C" {
@@ -174,8 +174,8 @@ void ProcessKeyEvent(SDL_KeyboardEvent* key)
     mod_state.numlock = (mod & KMOD_NUM) != 0;
     mod_state.shift = (mod & (KMOD_LSHIFT | KMOD_RSHIFT)) != 0;
     if (cfg.swap_alt_and_meta_keys) {
-        mod_state.lalt = (mod & KMOD_LMETA) != 0;
-        mod_state.ralt = (mod & KMOD_RMETA) != 0;
+        mod_state.lalt = (mod & KMOD_LGUI) != 0;
+        mod_state.ralt = (mod & KMOD_RGUI) != 0;
     } else {
         mod_state.lalt = (mod & KMOD_LALT) != 0;
         mod_state.ralt = (mod & KMOD_RALT) != 0;
@@ -274,16 +274,16 @@ void ProcessKeyEvent(SDL_KeyboardEvent* key)
             else
                 cursor_key(mod_state, 'F', '1');
             break;
-        case SDLK_KP0:
-        case SDLK_KP1:
-        case SDLK_KP2:
-        case SDLK_KP3:
-        case SDLK_KP4:
-        case SDLK_KP5:
-        case SDLK_KP6:
-        case SDLK_KP7:
-        case SDLK_KP8:
-        case SDLK_KP9:
+        case SDLK_KP_0:
+        case SDLK_KP_1:
+        case SDLK_KP_2:
+        case SDLK_KP_3:
+        case SDLK_KP_4:
+        case SDLK_KP_5:
+        case SDLK_KP_6:
+        case SDLK_KP_7:
+        case SDLK_KP_8:
+        case SDLK_KP_9:
             // TODO:
             break;
         case SDLK_KP_PERIOD:
@@ -331,11 +331,8 @@ void ProcessKeyEvent(SDL_KeyboardEvent* key)
         case SDLK_LALT:
         case SDLK_RALT:
             break;
-        case SDLK_LMETA:
-        case SDLK_RMETA:
-            break;
-        case SDLK_LSUPER:
-        case SDLK_RSUPER:
+        case SDLK_LGUI:
+        case SDLK_RGUI:
             break;
         default: {
             if (mod_state.ctrl) {

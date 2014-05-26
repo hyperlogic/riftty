@@ -1,3 +1,11 @@
+
+#if (defined _WIN32) || (defined _WIN64)
+#include "SDL.h"
+#include "SDL_opengl.h"
+#else
+#include "SDL2/SDL.h"
+#endif
+
 #include <stdio.h>
 #include <string>
 #include "SDL/SDL.h"
@@ -5,8 +13,10 @@
 #include "opengl.h"
 #include "appconfig.h"
 #include "render.h"
-#include "gb_context.h"
 #include "joystick.h"
+
+#include "text.h"
+#include "context.h"
 
 #include "abaci.h"
 
@@ -231,9 +241,10 @@ void Render(float dt)
         RenderFloor(projMatrix, viewMatrix, 0.0f);
 
         RenderTextBegin(projMatrix, viewMatrix, modelMatrix);
-        for (size_t i = 0; i < s_context.textCount; i++) {
-            const GB_Text* text = s_context.text[i];
-            RenderText(text->glyph_quads, text->num_glyph_quads);
+        for (int i = 0; i < win_get_text_count(); i++)
+        {
+            gb::Text* text = (gb::Text*)win_get_text(i);
+            RenderText(text->GetQuadVec());
         }
         RenderTextEnd();
 
@@ -250,8 +261,6 @@ void Render(float dt)
     RenderPostProcessWarp(s_SConfig, s_fboTex, false);
 
     GL_ERROR_CHECK("Render");
-
-    SDL_GL_SwapBuffers();
 }
 
 void CreateRenderTarget()
@@ -318,58 +327,39 @@ void CreateRenderTarget()
 
 int main(int argc, char* argv[])
 {
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK) < 0)
-        fprintf(stderr, "Couldn't init SDL!\n");
+    s_config = new AppConfig(true, false, 1280, 800);
+    SDL_Init(SDL_INIT_EVERYTHING);
+    SDL_Window* displayWindow;
+    SDL_Renderer* displayRenderer;
+
+	int err = SDL_CreateWindowAndRenderer(s_config->width, s_config->height, SDL_WINDOW_OPENGL, &displayWindow, &displayRenderer);
+	if (err == -1 || !displayWindow || !displayRenderer) {
+		fprintf(stderr, "SDL_CreateWindowAndRenderer failed!\n");
+	}
+
+	SDL_RendererInfo displayRendererInfo;
+    SDL_GetRendererInfo(displayRenderer, &displayRendererInfo);
+    /* TODO: Check that we have OpenGL */
+    if ((displayRendererInfo.flags & SDL_RENDERER_ACCELERATED) == 0 ||
+        (displayRendererInfo.flags & SDL_RENDERER_TARGETTEXTURE) == 0) {
+        /* TODO: Handle this. We have no render surface and not accelerated. */
+        fprintf(stderr, "NO RENDERER wtf!\n");
+    }
 
     atexit(SDL_Quit);
 
     JOYSTICK_Init();
 
-    // Get the current desktop width & height
-    //const SDL_VideoInfo* videoInfo = SDL_GetVideoInfo();
-
-    // TODO: get this from config file.
-    s_config = new AppConfig(true, false, 1280, 800);
     AppConfig& config = *s_config;
     config.title = "riftty";
 
-    // msaa
-    if (config.msaa)
-    {
-        SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
-        SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, config.msaaSamples);
-    }
-
-    SDL_Surface* screen;
-    if (config.fullscreen)
-    {
-        int width = config.width;//videoInfo->current_w;
-        int height = config.height;//videoInfo->current_h;
-        int bpp = 32;//videoInfo->vfmt->BitsPerPixel;
-
-        fprintf(stderr, "fullscreen : width = %d, height = %d, bpp = %d\n", width, height, bpp);
-        screen = SDL_SetVideoMode(width, height, bpp,
-                                  SDL_HWSURFACE | SDL_OPENGL | SDL_FULLSCREEN);
-    }
-    else
-    {
-        screen = SDL_SetVideoMode(config.width, config.height, 32, SDL_HWSURFACE | SDL_OPENGL);
-    }
-
-    SDL_WM_SetCaption(config.title.c_str(), config.title.c_str());
-
-    SDL_EnableKeyRepeat(SDL_DEFAULT_REPEAT_DELAY, SDL_DEFAULT_REPEAT_INTERVAL);
-
-    if (!screen)
-    {
-        fprintf(stderr, "Couldn't create SDL screen!\n");
-        exit(2);
-    }
+    //SDL_WM_SetCaption(config.title.c_str(), config.title.c_str());
+    //SDL_EnableKeyRepeat(SDL_DEFAULT_REPEAT_DELAY, SDL_DEFAULT_REPEAT_INTERVAL);
 
     // clear
     glClearColor(s_clearColor.x, s_clearColor.y, s_clearColor.z, s_clearColor.w);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    SDL_GL_SwapBuffers();
+    SDL_GL_SwapWindow(displayWindow);
 
     RiftSetup();
 
@@ -392,17 +382,21 @@ int main(int argc, char* argv[])
 
     cs_reconfig(); // TODO: do not want
 
+    term_init();
     term_reset();
     term_resize(cfg.rows, cfg.cols);
 
     // TODO:
     int font_width = 10;
     int font_height = 10;
-    int term_width = font_width * cfg.cols;
-    int term_height = font_height * cfg.rows;
+    unsigned short term_width = font_width * cfg.cols;
+    unsigned short term_height = font_height * cfg.rows;
 
     const char* login_argv[] = {"login", "-pfl", "ajt", NULL};
-    child_create(login_argv, &(struct winsize){cfg.rows, cfg.cols, term_width, term_height});
+    unsigned short rows = cfg.rows;
+    unsigned short cols = cfg.cols;
+    winsize ws = {rows, cols, term_width, term_height};
+    child_create(login_argv, &ws);
 
     int done = 0;
     while (!done)
@@ -462,6 +456,7 @@ int main(int argc, char* argv[])
 
             Process(dt);
             Render(dt);
+            SDL_GL_SwapWindow(displayWindow);
         }
     }
 

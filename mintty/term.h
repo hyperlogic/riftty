@@ -350,6 +350,7 @@ struct term {
 
 extern struct term term;
 
+void term_init(void);
 void term_resize(int, int);
 void term_scroll(int, int);
 void term_reset(void);

@@ -3,6 +3,7 @@
 #include "opengl.h"
 #include "appconfig.h"
 #include "win.h"
+#include "text.h"
 
 #include "FullbrightShader.h"
 #include "FullbrightTexturedShader.h"
@@ -159,20 +160,19 @@ void RenderTextBegin(const Matrixf& projMatrix, const Matrixf& viewMatrix, const
     s_fullbrightTexturedTextShader->setMat(fullMatrix);
 }
 
-void RenderText(GB_GlyphQuad* quads, uint32_t num_quads)
+void RenderText(const std::vector<gb::Quad>& quadVec)
 {
     static uint16_t indices[] = {0, 2, 1, 2, 3, 1};
 
-    uint32_t i = 0;
-    for (i = 0; i < num_quads; ++i)
+    for (auto &quad : quadVec)
     {
-        const WIN_TextUserData* data = (const WIN_TextUserData*)quads[i].user_data;
+        const WIN_TextUserData* data = (const WIN_TextUserData*)quad.userData;
         Vector4f bg_color = UintColorToVector4(data->bg_color);
         bg_color.w = 0.5;
         s_fullbrightShader->setColor(bg_color);
 
         uint32_t y_offset = data->line_height / 3; // hack
-        Vector2f origin = Vector2f(quads[i].pen[0], quads[i].pen[1] + y_offset);
+        Vector2f origin = Vector2f(quad.pen.x, quad.pen.y + y_offset);
         Vector2f size = Vector2f(data->max_advance, -(float)data->line_height);
 
         float pos[12] = {
@@ -189,15 +189,15 @@ void RenderText(GB_GlyphQuad* quads, uint32_t num_quads)
     }
 
     const float kDepthOffset = 3.0f;
-    for (i = 0; i < num_quads; i++) {
-        const WIN_TextUserData* data = (const WIN_TextUserData*)quads[i].user_data;
+    for (auto &quad : quadVec) {
+        const WIN_TextUserData* data = (const WIN_TextUserData*)quad.userData;
 
-        if (quads[i].size[0] > 0 && quads[i].size[1] > 0)
+        if (quad.size.x > 0 && quad.size.y > 0)
         {
-            Vector2f origin = Vector2f(quads[i].origin[0], quads[i].origin[1]);
-            Vector2f size = Vector2f(quads[i].size[0], quads[i].size[1]);
-            Vector2f uv_origin = Vector2f(quads[i].uv_origin[0], quads[i].uv_origin[1]);
-            Vector2f uv_size = Vector2f(quads[i].uv_size[0], quads[i].uv_size[1]);
+            Vector2f origin = Vector2f(quad.origin.x, quad.origin.y);
+            Vector2f size = Vector2f(quad.size.x, quad.size.y);
+            Vector2f uv_origin = Vector2f(quad.uvOrigin.x, quad.uvOrigin.y);
+            Vector2f uv_size = Vector2f(quad.uvSize.x, quad.uvSize.y);
             float attrib[20] = {
                 origin.x, origin.y, kDepthOffset, uv_origin.x, uv_origin.y,
                 origin.x + size.x, origin.y, kDepthOffset, uv_origin.x + uv_size.x, uv_origin.y,
@@ -206,7 +206,7 @@ void RenderText(GB_GlyphQuad* quads, uint32_t num_quads)
             };
 
             s_fullbrightTexturedTextShader->setColor(UintColorToVector4(data->fg_color));
-            s_fullbrightTexturedTextShader->setTex(quads[i].gl_tex_obj);
+            s_fullbrightTexturedTextShader->setTex(quad.glTexObj);
             s_fullbrightTexturedTextShader->apply(s_prevShader, attrib);
             s_prevShader = s_fullbrightTexturedTextShader;
 
@@ -274,7 +274,7 @@ void RenderFloor(const Matrixf& projMatrix, const Matrixf& viewMatrix, float hei
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, indices);
 }
 
-void RenderFullScreenQuad(GLuint texture, int width, int height)
+void RenderFullScreenQuad(GLuint texture, float width, float height)
 {
     Matrixf projMatrix = Matrixf::Ortho(0, width, 0, height, -1, 1);
 

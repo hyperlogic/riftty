@@ -17,6 +17,12 @@ struct term term;
 const termchar
 basic_erase_char = { .cc_next = 0, .chr = ' ', .attr = ATTR_DEFAULT };
 
+void
+term_init(void)
+{
+    memset(&term, 0, sizeof(struct term));
+}
+
 /*
  * Call when the terminal's blinking-text settings change, or when
  * a text blink has just occurred.
@@ -347,6 +353,7 @@ term_resize(int newrows, int newcols)
 
         // Restore lines from scrollback
         for (i = restore; i--;) {
+            printf("ajt: term resize, i = %d\n", i);
             uchar *cline = scrollback_pop();
             termline *line = decompressline(cline, null);
             free(cline);
@@ -465,6 +472,35 @@ term_check_boundary(int x, int y)
     }
 }
 
+#define RECYCLE(SRC)                                \
+    do {                                            \
+        memcpy(recycled, SRC, sizeof recycled);     \
+        for (i = 0; i < lines; i++)                 \
+            clearline(recycled[i]);                 \
+    } while(0)
+
+// Move selection markers if they're within the scroll region
+#define SCROLL_POS_DOWN(POS)                                            \
+    do {                                                                \
+        if (!term.show_other_screen && (POS)->y >= topline && (POS)->y < botline) { \
+            if (((POS)->y += lines) >= botline) {                       \
+                (POS)->x = 0;                                           \
+                (POS)->y = botline;                                     \
+            }                                                           \
+        }                                                               \
+    } while(0)
+
+// Move selection markers if they're within the scroll region
+#define SCROLL_POS_UP(POS)                                              \
+    do {                                                                \
+        if (!term.show_other_screen && (POS)->y >= seltop && (POS)->y < botline) { \
+            if (((POS)->y -= lines) < seltop) {                         \
+                (POS)->x = 0;                                           \
+                (POS)->y = seltop;                                      \
+            }                                                           \
+        }                                                               \
+    } while(0)
+
 /*
  * Scroll the screen. (`lines' is +ve for scrolling forward, -ve
  * for backward.) `sb' is true if the scrolling is permitted to
@@ -495,29 +531,17 @@ term_do_scroll(int topline, int botline, int lines, bool sb)
     // Reuse lines that are being scrolled out of the scroll region,
     // clearing their content.
     termline *recycled[abs(lines)];
-    void recycle(termline **src) {
-        memcpy(recycled, src, sizeof recycled);
-        int i;
-        for (i = 0; i < lines; i++)
-            clearline(recycled[i]);
-    }
 
+    int i;
     if (down) {
         // Move down remaining lines and push in the recycled lines
-        recycle(bot - lines);
+        RECYCLE(bot - lines);
         memmove(top + lines, top, moved_lines * sizeof(termline *));
         memcpy(top, recycled, sizeof recycled);
 
-        // Move selection markers if they're within the scroll region
-        void scroll_pos(pos *p) {
-            if (!term.show_other_screen && p->y >= topline && p->y < botline) {
-                if ((p->y += lines) >= botline)
-                    *p = (pos){.y = botline, .x = 0};
-            }
-        }
-        scroll_pos(&term.sel_start);
-        scroll_pos(&term.sel_anchor);
-        scroll_pos(&term.sel_end);
+        SCROLL_POS_DOWN(&term.sel_start);
+        SCROLL_POS_DOWN(&term.sel_anchor);
+        SCROLL_POS_DOWN(&term.sel_end);
     }
     else {
         int seltop = topline;
@@ -537,23 +561,19 @@ term_do_scroll(int topline, int botline, int lines, bool sb)
         }
 
         // Move up remaining lines and push in the recycled lines
-        recycle(top);
+        RECYCLE(top);
         memmove(top, top + lines, moved_lines * sizeof(termline *));
         memcpy(bot - lines, recycled, sizeof recycled);
 
-        // Move selection markers if they're within the scroll region
-        void scroll_pos(pos *p) {
-            if (!term.show_other_screen && p->y >= seltop && p->y < botline) {
-                if ((p->y -= lines) < seltop)
-                    *p = (pos){.y = seltop, .x = 0};
-            }
-        }
-        scroll_pos(&term.sel_start);
-        scroll_pos(&term.sel_anchor);
-        scroll_pos(&term.sel_end);
+        SCROLL_POS_UP(&term.sel_start);
+        SCROLL_POS_UP(&term.sel_anchor);
+        SCROLL_POS_UP(&term.sel_end);
     }
 }
 
+#undef RECYCLE
+#undef SCROLL_POS_DOWN
+#undef SCROLL_POS_UP
 
 /*
  * Erase a large portion of the screen: the whole screen, or the

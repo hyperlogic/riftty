@@ -501,6 +501,7 @@ void
 copy_config(config *dst_p, const config *src_p)
 {
   uint i;
+  char* temp;
   for (i = 0; i < lengthof(options); i++) {
     opt_type type = options[i].type;
     if (!(type & OPT_LEGACY)) {
@@ -509,7 +510,11 @@ copy_config(config *dst_p, const config *src_p)
       void *src_val_p = (void *)src_p + offset;
       switch (type) {
         WHEN OPT_STRING:
-          strset(dst_val_p, *(mintty_string *)src_val_p);
+          //strset(dst_val_p, *(mintty_string *)src_val_p);
+          // TODO: leak, but this is better then the previous undefined behavior.
+          temp = (char*)malloc(strlen(*(mintty_string *)src_val_p) + 1);
+          strcpy(temp, *(mintty_string *)src_val_p);
+          *(mintty_string *)dst_val_p = temp;
         WHEN OPT_INT OR OPT_COLOUR:
           *(int *)dst_val_p = *(int *)src_val_p;
         OTHERWISE:

@@ -191,6 +191,14 @@ write_linefeed(void)
     curs->wrapnext = false;
 }
 
+#define PUT_CHAR(CHAR)                          \
+    do {                                        \
+        clear_cc(line, curs->x);                \
+        line->chars[curs->x].chr = CHAR;        \
+        line->chars[curs->x].attr = curs->attr; \
+    } while(0)
+
+
 static void
 write_char(wchar c, int width)
 {
@@ -199,12 +207,6 @@ write_char(wchar c, int width)
 
     term_cursor *curs = &term.curs;
     termline *line = term.lines[curs->y];
-    void put_char(wchar c)
-    {
-        clear_cc(line, curs->x);
-        line->chars[curs->x].chr = c;
-        line->chars[curs->x].attr = curs->attr;
-    }
 
     if (curs->wrapnext && curs->autowrap && width > 0) {
         line->attr |= LATTR_WRAPPED;
@@ -224,7 +226,7 @@ write_char(wchar c, int width)
         WHEN 1:  // Normal character.
             term_check_boundary(curs->x, curs->y);
             term_check_boundary(curs->x + 1, curs->y);
-            put_char(c);
+            PUT_CHAR(c);
         WHEN 2:  // Double-width character.
             /*
              * If we're about to display a double-width
@@ -260,9 +262,9 @@ write_char(wchar c, int width)
                 term_check_boundary(curs->x, curs->y);
                 term_check_boundary(curs->x + 2, curs->y);
             }
-            put_char(c);
+            PUT_CHAR(c);
             curs->x++;
-            put_char(UCSWIDE);
+            PUT_CHAR(UCSWIDE);
         WHEN 0:  // Combining character.
             if (curs->x > 0) {
                 /* If we're in wrapnext state, the character
@@ -293,6 +295,8 @@ write_char(wchar c, int width)
         curs->wrapnext = true;
     }
 }
+
+#undef PUT_CHAR
 
 static void
 write_error(void)

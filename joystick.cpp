@@ -1,5 +1,5 @@
 #include "joystick.h"
-#include <SDL/SDL.h>
+#include <SDL2/SDL.h>
 #include <assert.h>
 
 SDL_Joystick* s_sdlJoy = 0;

@@ -1,8 +1,11 @@
+extern "C" {
 #include "win.h"
 #include "charset.h"
-#include "gb_context.h"
-#include "gb_font.h"
-#include "gb_text.h"
+}
+
+#include "context.h"
+#include "font.h"
+#include "text.h"
 
 enum {LDRAW_CHAR_NUM = 31, LDRAW_CHAR_TRIES = 4};
 
@@ -47,7 +50,15 @@ static const wchar linedraw_chars[LDRAW_CHAR_NUM][LDRAW_CHAR_TRIES] = {
   {0x00B7, '.'},                   // 0x7E '~' Centered dot
 };
 
-struct WIN_Context s_context;
+struct WIN_Context {
+    WIN_Context() : max_advance(0), line_height(0) {}
+    std::shared_ptr<gb::Font> font;
+    std::vector<std::shared_ptr<gb::Text>> textVec;
+    uint32_t max_advance;
+    uint32_t line_height;
+};
+WIN_Context* s_context = nullptr;
+
 char s_temp[4096];
 uint32_t s_ansi_colors[COLOUR_NUM];
 
@@ -55,6 +66,16 @@ static uint32_t MakeColor(uint8_t red, uint8_t green, uint8_t blue)
 {
     uint8_t alpha = 255;
     return alpha << 24 | blue << 16 | green << 8 | red;
+}
+
+int win_get_text_count(void)
+{
+    return s_context->textVec.size();
+}
+
+void* win_get_text(int i)
+{
+    return (void*)(s_context->textVec[i].get());
 }
 
 static void init_colors(void)
@@ -107,63 +128,28 @@ static void init_colors(void)
 void win_init(void)
 {
     init_colors();
+    gb::Context::Init(1024, 1, gb::TextureFormat_Alpha);
 
-    memset(&s_context, 0, sizeof(struct WIN_Context));
+    s_context = new WIN_Context();
 
-    // create the glyphblaster context
-    GB_ERROR err;
-    err = GB_ContextMake(1024, 1, GB_TEXTURE_FORMAT_ALPHA, &s_context.gb);
-    if (err != GB_ERROR_NONE) {
-        fprintf(stderr, "GB_Init Error %d\n", err);
-        exit(1);
-    }
-
-    // create a monospace font
-    //err = GB_FontMake(s_context.gb, "font/SourceCodePro-Bold.ttf", 12, GB_RENDER_NORMAL, GB_HINT_DEFAULT, &s_context.font);
-    //err = GB_FontMake(s_context.gb, "font/DejaVuSansMono.ttf", 14, GB_RENDER_NORMAL, GB_HINT_NONE, &s_context.font);
-    err = GB_FontMake(s_context.gb, "font/DejaVuSansMono-Bold.ttf", 32, GB_RENDER_NORMAL, GB_HINT_NONE, &s_context.font);
-    //err = GB_FontMake(s_context.gb, "font/Courier New.ttf", 14, GB_RENDER_NORMAL, GB_HINT_DEFAULT, &s_context.font);
-    if (err != GB_ERROR_NONE) {
-        fprintf(stderr, "GB_MakeFont Error %s\n", GB_ErrorToString(err));
-        exit(1);
-    }
-
-    GB_FontGetMaxAdvance(s_context.gb, s_context.font, &s_context.max_advance);
-    GB_FontGetLineHeight(s_context.gb, s_context.font, &s_context.line_height);
-
-    // start off with with 4 text ptrs
-    s_context.text = malloc(sizeof(struct GB_Text*) * 4);
-    s_context.textCapacity = 4;
-    s_context.textCount = 0;
+    s_context->font = std::make_shared<gb::Font>("font/DejaVuSansMono-Bold.ttf", 32, 0,
+                                                 gb::FontRenderOption_Normal,
+                                                 gb::FontHintOption_None);
+    s_context->max_advance = s_context->font->GetMaxAdvance();
+    s_context->line_height = s_context->font->GetLineHeight();
 }
 
 static void win_clear_text()
 {
-    // delete all texts
-    int i;
-    for (i = 0; i < s_context.textCount; i++) {
-        GB_TextRelease(s_context.gb, s_context.text[i]);
-        s_context.text[i] = NULL;
-    }
-    s_context.textCount = 0;
+    s_context->textVec.clear();
 }
 
 void win_shutdown(void)
 {
-    win_clear_text();
-    free(s_context.text);
+    delete s_context;
+    s_context = nullptr;
 
-    GB_ERROR err = GB_FontRelease(s_context.gb, s_context.font);
-    if (err != GB_ERROR_NONE) {
-        fprintf(stderr, "GB_ReleaseFont Error %s\n", GB_ErrorToString(err));
-        exit(1);
-    }
-
-    err = GB_ContextRelease(s_context.gb);
-    if (err != GB_ERROR_NONE) {
-        fprintf(stderr, "GB_Shutdown Error %s\n", GB_ErrorToString(err));
-        exit(1);
-    }
+    gb::Context::Shutdown();
 }
 
 void win_reconfig(void)
@@ -254,13 +240,6 @@ void win_text(int x, int y, wchar *text, int len, uint attr, int lattr)
 
     //fprintf(stderr, "mintty: win_text() x = %d, y = %d, text = %p, len = %d, attr = 0x%x, lattr = 0x%x, fgi = %d, bgi = %d\n", x, y, text, len, attr, lattr, fgi, bgi);
 
-    // realloc text ptrs, if necessary
-    if (s_context.textCount == s_context.textCapacity)
-    {
-        s_context.textCapacity *= s_context.textCapacity;
-        s_context.text = realloc(s_context.text, s_context.textCapacity * sizeof(struct GB_Text*));
-    }
-
     // HACK: because GB_Text does not have a pen position.
     // we append the string with the appropriate amount of newlines and spaces.
     // use s_temp to build string
@@ -327,24 +306,20 @@ void win_text(int x, int y, wchar *text, int len, uint attr, int lattr)
     */
 
     // allocate a new text object!
-    uint32_t pixel_x = x * s_context.max_advance;
-    uint32_t pixel_y = y * s_context.line_height;
-    uint32_t origin[2] = {pixel_x, pixel_y};
-    uint32_t size[2] = {10000, 10000};
-    struct GB_Text* gb_text = NULL;
-    struct WIN_TextUserData* data = malloc(sizeof(struct WIN_TextUserData));
+    uint32_t pixel_x = x * s_context->max_advance;
+    uint32_t pixel_y = y * s_context->line_height;
+    gb::IntPoint origin(pixel_x, pixel_y);
+    gb::IntPoint size(10000, 10000);
+    WIN_TextUserData* data = (WIN_TextUserData*)malloc(sizeof(struct WIN_TextUserData));
     data->fg_color = fg_color;
     data->bg_color = bg_color;
-    data->max_advance = s_context.max_advance;
-    data->line_height = s_context.line_height;
-    GB_ERROR err = GB_TextMake(s_context.gb, (uint8_t*)s_temp, s_context.font, data, origin, size,
-                               GB_HORIZONTAL_ALIGN_LEFT, GB_VERTICAL_ALIGN_TOP, GB_TEXT_OPTION_DISABLE_SHAPING, &gb_text);
-    if (err != GB_ERROR_NONE) {
-        fprintf(stderr, "GB_TextMake Error %s\n", GB_ErrorToString(err));
-        exit(1);
-    }
-
-    s_context.text[s_context.textCount++] = gb_text;
+    data->max_advance = s_context->max_advance;
+    data->line_height = s_context->line_height;
+    auto gb_text = std::make_shared<gb::Text>(s_temp, s_context->font, data, origin, size,
+                                              gb::TextHorizontalAlign_Left,
+                                              gb::TextVerticalAlign_Top,
+                                              gb::TextOptionFlags_DisableShaping);
+    s_context->textVec.push_back(gb_text);
 }
 
 // original win_text code from mintty

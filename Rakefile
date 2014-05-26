@@ -1,8 +1,6 @@
-# build quadapult sdl version
-
 require 'rake/clean'
 
-$CC = 'llvm-gcc'
+$CC = 'clang'
 
 # used by tags task
 class Dir
@@ -21,32 +19,39 @@ class Dir
   end
 end
 
+# different flags for c and cpp
 $C_FLAGS = ['-Wall',
-            `sdl-config --cflags`.chomp,
+            `sdl2-config --cflags`.chomp,
+            `freetype-config --cflags`.chomp,
+            '-DDARWIN',
+            "-Iglyphblaster/src",
+            "-Iabaci/src",
+            "-Imintty/",
+            "-I../OculusSDK/LibOVR/Include"
+           ]
+
+$CPP_FLAGS = ['-Wall',
+            '--std=c++11',
+            `sdl2-config --cflags`.chomp,
             `freetype-config --cflags`.chomp,
             '-DDARWIN',
             "-Iglyphblaster/src",
             "-Iabaci/src",
             "-Imintty/",
             "-I../OculusSDK/LibOVR/Include",
-            "-fnested-functions",  # mintty needs this.
-            "-fno-rtti",
-            "-I/usr/local/Cellar/icu4c/51.1/include",
+            "-fno-rtti"
            ]
 
 $DEBUG_C_FLAGS = ['-g',
-                  '-DDEBUG',
-                  '-DHASH_DEBUG'  # for uthash
+                  '-DDEBUG'
                  ]
 
 $OPT_C_FLAGS = ['-O3', '-DNDEBUG'];
 
-$L_FLAGS = [`sdl-config --libs`.chomp,
+$L_FLAGS = [`sdl2-config --libs`.chomp,
             `freetype-config --libs`.chomp,
             '-lstdc++',
             '-lharfbuzz',
-            "-L/usr/local/Cellar/icu4c/51.1/lib",
-            '-licuuc',
             "-L../OculusSDK/LibOVR/Lib/MacOS/Release/",
             "-lovr",
             '-framework Cocoa',
@@ -56,8 +61,7 @@ $L_FLAGS = [`sdl-config --libs`.chomp,
             '-framework IOKit'
            ]
 
-$OBJECTS = ['darwin/SDLMain.o',
-            'riftty.o',
+$OBJECTS = ['riftty.o',
             'pty.o',
             'keyboard.o',
             'joystick.o',
@@ -78,13 +82,12 @@ $OBJECTS = ['darwin/SDLMain.o',
             'mintty/win.o',
 
             # glyphblaster
-            'glyphblaster/src/gb_cache.o',
-            'glyphblaster/src/gb_context.o',
-            'glyphblaster/src/gb_error.o',
-            'glyphblaster/src/gb_font.o',
-            'glyphblaster/src/gb_glyph.o',
-            'glyphblaster/src/gb_text.o',
-            'glyphblaster/src/gb_texture.o',
+            'glyphblaster/src/cache.o',
+            'glyphblaster/src/context.o',
+            'glyphblaster/src/font.o',
+            'glyphblaster/src/glyph.o',
+            'glyphblaster/src/text.o',
+            'glyphblaster/src/texture.o',
            ]
 
 $GEN_HEADERS = ['FullbrightShader.h',
@@ -94,15 +97,23 @@ $GEN_HEADERS = ['FullbrightShader.h',
 $DEPS = $OBJECTS.map {|f| f[0..-3] + '.d'}
 $EXE = 'riftty'
 
+def flags_for src
+  if File.extname(src) == '.cpp'
+    $CPP_FLAGS.join ' '
+  else
+    $C_FLAGS.join ' '
+  end
+end
+
 # Use the compiler to build makefile rules for us.
 # This will list all of the pre-processor includes this source file depends on.
 def make_deps t
-  sh "#{$CC} -MM -MF #{t.name} #{$C_FLAGS.join ' '} -c #{t.source}"
+  sh "#{$CC} -MM -MF #{t.name} #{flags_for t.source} -c #{t.source}"
 end
 
 # Compile a single compilation unit into an object file
 def compile obj, src
-  sh "#{$CC} #{$C_FLAGS.join ' '} -c #{src} -o #{obj}"
+  sh "#{$CC} #{flags_for src} -c #{src} -o #{obj}"
 end
 
 # Link all the object files to create the exe

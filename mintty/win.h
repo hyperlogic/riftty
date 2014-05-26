@@ -12,17 +12,8 @@ struct WIN_TextUserData
     uint32_t line_height;
 };
 
-struct WIN_Context {
-    struct GB_Context *gb;
-    struct GB_Font *font;
-    struct GB_Text **text;
-    size_t textCapacity;
-    size_t textCount;
-    uint32_t max_advance;
-    uint32_t line_height;
-};
-
-extern struct WIN_Context s_context;
+int win_get_text_count(void);
+void* win_get_text(int i);
 
 void win_init(void);
 void win_shutdown(void);
