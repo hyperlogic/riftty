@@ -2,9 +2,9 @@ riftty
 *.o
 *.d
 TAGS
+.DS_Store
 
 # generated shader headers
 FullbrightShader.h
 FullbrightTexturedShader.h
 PhongTexturedShader.h
-OculusShader.h
