@@ -37,9 +37,23 @@ void JOYSTICK_ClearFlags()
 // TODO: do a real joystick config.
 // maps event to axes
 #ifdef DARWIN
-static int s_axisMap[] = {Joystick::LeftStickX, Joystick::LeftStickY, Joystick::RightStickX, Joystick::RightStickY, Joystick::LeftTrigger, Joystick::RightTrigger};
+static int s_axisMap[] = {
+    Joystick::LeftStickX,
+    Joystick::LeftStickY,
+    Joystick::LeftTrigger,
+    Joystick::RightStickX,
+    Joystick::RightStickY,
+    Joystick::RightTrigger
+};
 #else
-static int s_axisMap[] = {Joystick::LeftStickX, Joystick::LeftStickY, Joystick::LeftTrigger, Joystick::RightStickY, Joystick::RightStickX, Joystick::RightTrigger};
+static int s_axisMap[] = {
+    Joystick::LeftStickX,
+    Joystick::LeftStickY,
+    Joystick::LeftTrigger,
+    Joystick::RightStickY,
+    Joystick::RightStickX,
+    Joystick::RightTrigger
+};
 #endif
 
 void JOYSTICK_UpdateMotion(const SDL_JoyAxisEvent* event)
@@ -48,6 +62,7 @@ void JOYSTICK_UpdateMotion(const SDL_JoyAxisEvent* event)
 		return;
 
 	const float kDeadSpot = 0.2f;
+
 	int i = s_axisMap[event->axis];
 	switch (i)
 	{

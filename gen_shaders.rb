@@ -254,20 +254,7 @@ progs = [Prog.new("fullbright_shader",
                    ArrayType.new(:float, :light_strength, 8)],
                   [BasicType.new(:vec3, :pos),
                    BasicType.new(:vec2, :uv),
-                   BasicType.new(:vec3, :normal)]),
-         Prog.new("oculus_shader",
-                  "shader/oculus.vsh",
-                  "shader/oculus-simple.fsh",
-                  [BasicType.new(:mat4, :View),
-                   BasicType.new(:mat4, :Texm),
-                   BasicType.new(:vec2, :LensCenter),
-                   BasicType.new(:vec2, :ScreenCenter),
-                   BasicType.new(:vec2, :Scale),
-                   BasicType.new(:vec2, :ScaleIn),
-                   BasicType.new(:vec4, :HmdWarpParam),
-                   BasicType.new(:sampler2D, :Texture0)],
-                  [BasicType.new(:vec4, :Position),
-                   BasicType.new(:vec2, :TexCoord)])
+                   BasicType.new(:vec3, :normal)])
         ]
 
 progs.each do |prog|

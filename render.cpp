@@ -8,7 +8,6 @@
 #include "FullbrightShader.h"
 #include "FullbrightTexturedShader.h"
 #include "PhongTexturedShader.h"
-#include "OculusShader.h"
 
 #ifdef DEBUG
 // If there is a glError this outputs it along with a message to stderr.
@@ -48,7 +47,6 @@ FullbrightShader* s_fullbrightShader = 0;
 FullbrightTexturedShader* s_fullbrightTexturedShader = 0;
 FullbrightTexturedShader* s_fullbrightTexturedTextShader = 0;
 PhongTexturedShader* s_phongTexturedShader = 0;
-OculusShader* s_oculusShader = 0;
 Shader* s_prevShader = 0;
 GLuint s_checker = 0;
 
@@ -115,12 +113,6 @@ void RenderInit()
     s_phongTexturedShader = new PhongTexturedShader();
     success = s_phongTexturedShader->compileAndLinkFromFiles("shader/phong_textured.vsh",
                                                              "shader/phong_textured.fsh");
-    if (!success)
-        exit(EXIT_FAILURE);
-
-    s_oculusShader = new OculusShader();
-    success = s_oculusShader->compileAndLinkFromFiles("shader/oculus.vsh",
-                                                      "shader/oculus-simple.fsh");
     if (!success)
         exit(EXIT_FAILURE);
 
@@ -227,8 +219,7 @@ void RenderFloor(const Matrixf& projMatrix, const Matrixf& viewMatrix, float hei
     Matrixf normalMatrix = worldMatrix;
     normalMatrix.SetTrans(Vector3f(0, 0, 0));
 
-    const float kFeetToCm = 30.48;
-    const float kInchesToCm = 2.54;
+    const float kFeetToMeters = 0.3048;
 
     s_phongTexturedShader->setFullMat(projMatrix * viewMatrix * worldMatrix);
     s_phongTexturedShader->setWorldMat(worldMatrix);
@@ -239,9 +230,9 @@ void RenderFloor(const Matrixf& projMatrix, const Matrixf& viewMatrix, float hei
     static bool init = false;
     if (!init) {
         std::vector<Vector3f> lightWorldPos;
-        lightWorldPos.push_back(Vector3f(0, 4 * kFeetToCm, 0));
-        lightWorldPos.push_back(Vector3f(10 * kFeetToCm, 4 * kFeetToCm, 0.0f));
-        lightWorldPos.push_back(Vector3f(0, 4 * kFeetToCm, 10 * kFeetToCm));
+        lightWorldPos.push_back(Vector3f(0, 4 * kFeetToMeters, 0));
+        lightWorldPos.push_back(Vector3f(10 * kFeetToMeters, 4 * kFeetToMeters, 0.0f));
+        lightWorldPos.push_back(Vector3f(0, 4 * kFeetToMeters, 10 * kFeetToMeters));
         s_phongTexturedShader->setLightWorldPos(lightWorldPos);
 
         std::vector<Vector3f> lightColor;
@@ -260,7 +251,7 @@ void RenderFloor(const Matrixf& projMatrix, const Matrixf& viewMatrix, float hei
         init = true;
     }
 
-    float kOffset = 1000.0f * kFeetToCm;
+    float kOffset = 1000.0f * kFeetToMeters;
     float kTexOffset = 100.0f;
     float attrib[32] = {
         0 - kOffset, 0, 0 - kOffset, 0, 0, 0, 1, 0,
@@ -274,96 +265,23 @@ void RenderFloor(const Matrixf& projMatrix, const Matrixf& viewMatrix, float hei
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, indices);
 }
 
-void RenderFullScreenQuad(GLuint texture, float width, float height)
+void RenderScreenAlignedQuad(GLuint texture, Vector2f viewportSize, Vector2f quadPos, Vector2f quadSize)
 {
-    Matrixf projMatrix = Matrixf::Ortho(0, width, 0, height, -1, 1);
+    Matrixf projMatrix = Matrixf::Ortho(0, viewportSize.x, 0, viewportSize.y, -1, 1);
 
     s_fullbrightTexturedShader->setMat(projMatrix);
     s_fullbrightTexturedShader->setColor(Vector4f(1, 1, 1, 1));
     s_fullbrightTexturedShader->setTex(texture);
 
     float attrib[20] = {
-        0, 0, 0, 0, 0,
-        width, 0, 0, 1, 0,
-        0, height, 0, 0, 1,
-        width, height, 0, 1, 1
+        quadPos.x, quadPos.y, 0, 0, 0,
+        quadPos.x + quadSize.x, quadPos.y, 0, 1, 0,
+        quadPos.x, quadPos.y + quadSize.y, 0, 0, 1,
+        quadPos.x + quadSize.x, quadPos.y + quadSize.y, 0, 1, 1
     };
 
     s_fullbrightTexturedShader->apply(s_prevShader, attrib);
     s_prevShader = s_fullbrightTexturedShader;
-
-    static uint16_t indices[] = {0, 2, 1, 2, 3, 1};
-    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, indices);
-}
-
-void RenderPostProcessWarp(OVR::Util::Render::StereoConfig& sConfig, uint32_t texture, bool left)
-{
-    OVR::Util::Render::StereoEyeParams eyeParams = sConfig.GetEyeRenderParams(left ? OVR::Util::Render::StereoEye_Left : OVR::Util::Render::StereoEye_Right);
-    OVR::Util::Render::DistortionConfig dConfig = *eyeParams.pDistortion;
-
-    glViewport(eyeParams.VP.x, eyeParams.VP.y, eyeParams.VP.w, eyeParams.VP.h);
-    glEnable(GL_SCISSOR_TEST);
-    glScissor(eyeParams.VP.x, 0, eyeParams.VP.w, eyeParams.VP.h);
-    if (left)
-        glClearColor(1, 0, 0, 1);
-    else
-        glClearColor(0, 0, 1, 1);
-
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    float w = float(eyeParams.VP.w) / float(sConfig.GetFullViewport().w),
-          h = float(eyeParams.VP.h) / float(sConfig.GetFullViewport().h),
-          x = float(eyeParams.VP.x) / float(sConfig.GetFullViewport().w),
-          y = float(eyeParams.VP.y) / float(sConfig.GetFullViewport().h);
-
-    float as = (float)eyeParams.VP.w / (float)eyeParams.VP.h;
-
-    // We are using 1/4 of DistortionCenter offset value here, since it is
-    // relative to [-1,1] range that gets mapped to [0, 0.5].
-    float sign = left ? 1 : -1;
-    s_oculusShader->setLensCenter(Vector2f(x + (w + sign * dConfig.XCenterOffset * 0.5f)*0.5f,
-                                           y + h*0.5f));
-
-    s_oculusShader->setScreenCenter(Vector2f(x + w*0.5f, y + h*0.5f));
-
-    // MA: This is more correct but we would need higher-res texture vertically; we should adopt this
-    // once we have asymmetric input texture scale.
-    float scaleFactor = 1.0f / dConfig.Scale;
-
-    s_oculusShader->setScale(Vector2f((w/2) * scaleFactor, (h/2) * scaleFactor * as));
-    s_oculusShader->setScaleIn(Vector2f((2/w), (2/h) / as));
-    s_oculusShader->setHmdWarpParam(Vector4f(dConfig.K[0], dConfig.K[1], dConfig.K[2], dConfig.K[3]));
-
-#if 0
-        s_oculusShader->setChromAbParam(Vector4f(dConfig.ChromaticAberration[0],
-                                                 dConfig.ChromaticAberration[1],
-                                                 dConfig.ChromaticAberration[2],
-                                                 dConfig.ChromaticAberration[3]));
-#endif
-
-    Matrixf texm = Matrixf::Rows(Vector4f(w, 0, 0, x),
-                                 Vector4f(0, h, 0, y),
-                                 Vector4f(0, 0, 0, 0),
-                                 Vector4f(0, 0, 0, 1));
-    s_oculusShader->setTexm(texm);
-
-    Matrixf view = Matrixf::Rows(Vector4f(2, 0, 0, -1),
-                                 Vector4f(0, 2, 0, -1),
-                                 Vector4f(0, 0, 0, 0),
-                                 Vector4f(0, 0, 0, 1));
-
-    s_oculusShader->setView(view);
-    s_oculusShader->setTexture0(texture);
-
-    float attrib[6 * 4] = {
-        0, 1, 0, 1, 0, 0,
-        1, 1, 0, 1, 1, 0,
-        0, 0, 0, 1, 0, 1,
-        1, 0, 0, 1, 1, 1
-    };
-
-    s_oculusShader->apply(s_prevShader, attrib);
-    s_prevShader = s_oculusShader;
 
     static uint16_t indices[] = {0, 2, 1, 2, 3, 1};
     glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, indices);

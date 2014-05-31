@@ -8,7 +8,6 @@
 
 #include <stdio.h>
 #include <string>
-#include "SDL/SDL.h"
 #include "keyboard.h"
 #include "opengl.h"
 #include "appconfig.h"
@@ -35,11 +34,10 @@ extern "C" {
 #include "win.h"
 }
 
-#include "OVR.h"
+#include "../Src/OVR_CAPI.h"
+#include "../Src/OVR_CAPI_GL.h"
 
-const float kFeetToCm = 30.48;
-const float kInchesToCm = 2.54;
-const float kMetersToCm = 100.0;
+const float kFeetToMeters = 0.3048;
 
 Vector4f s_clearColor(0, 0, 0.2, 1);
 
@@ -47,90 +45,111 @@ Vector4f s_clearColor(0, 0, 0.2, 1);
 unsigned int s_ticks = 0;
 static Matrixf s_RotY90 = Matrixf::AxisAngle(Vector3f(0,1,0), PI/2.0f);
 
-OVR::Ptr<OVR::DeviceManager> s_pManager;
-OVR::Ptr<OVR::HMDDevice> s_pHMD;
-OVR::Ptr<OVR::SensorDevice> s_pSensor;
-OVR::SensorFusion s_SFusion;
-OVR::Util::Render::StereoConfig s_SConfig;
-float s_distortionScale;
+ovrHmd s_hmd;
+ovrHmdDesc s_hmdDesc;
+ovrEyeRenderDesc s_eyeRenderDesc[2];
+ovrSizei s_renderTargetSize;
+ovrTexture s_eyeTexture[2];
 
 uint32_t s_fbo;
 uint32_t s_fboDepth;
 uint32_t s_fboTex;
 
-Vector3f s_cameraPos(0, 6 * kFeetToCm, 0);
+Vector3f s_cameraPos(0, 6 * kFeetToMeters, 0);
 
-void DumpHMDInfo(const OVR::HMDInfo& hmd)
+void DumpHMDInfo(const ovrHmdDesc& desc)
 {
-    printf("HResolution = %u\n", hmd.HResolution);
-    printf("VResolution = %u\n", hmd.VResolution);
-    printf("HScreenSize = %.3f\n", hmd.HScreenSize);
-    printf("VScreenSize = %.3f\n", hmd.VScreenSize);
-    printf("VScreenCenter = %.5f\n", hmd.VScreenCenter);
-    printf("EyeToScreenDistance = %.5f\n", hmd.EyeToScreenDistance);
-    printf("LensSeparationDistance = %.5f\n", hmd.LensSeparationDistance);
-    printf("InterpupillaryDistance = %.5f\n", hmd.InterpupillaryDistance);
-    printf("DistortionK = (%.5f, %.5f, %.5f, %.5f)\n", hmd.DistortionK[0], hmd.DistortionK[1], hmd.DistortionK[2], hmd.DistortionK[3]);
-    printf("ChromaAbCorrection = (%.5f, %.5f, %.5f, %.5f)\n", hmd.ChromaAbCorrection[0], hmd.ChromaAbCorrection[1], hmd.ChromaAbCorrection[2], hmd.ChromaAbCorrection[3]);
+    printf("HMDInfo\n");
+    printf("    ProductName = \"%s\"\n", desc.ProductName);
+    printf("    Manufacturer = \"%s\"\n", desc.Manufacturer);
+    printf("    HmdCaps = 0x%x\n", desc.HmdCaps);
+    printf("        %s Present\n", desc.HmdCaps & ovrHmdCap_Present ? "IS" : "IS NOT");
+    printf("        %s Available\n", desc.HmdCaps & ovrHmdCap_Available ? "IS" : "IS NOT");
+    printf("    SensorCaps = 0x%x\n", desc.SensorCaps);
+    printf("        %s Orientation\n", desc.SensorCaps & ovrSensorCap_Orientation ? "SUPPORTS" : "DOES NOT SUPPORT");
+    printf("        %s YawCorrection\n", desc.SensorCaps & ovrSensorCap_YawCorrection ? "SUPPORTS" : "DOES NOT SUPPORT");
+    printf("        %s Position\n", desc.SensorCaps & ovrSensorCap_Position ? "SUPPORTS" : "DOES NOT SUPPORT");
+    printf("    DistortionCaps = 0x%x\n", desc.DistortionCaps);
+    printf("        %s Chromatic\n", desc.DistortionCaps & ovrDistortionCap_Chromatic ? "SUPPORTS" : "DOES NOT SUPPORT");
+    printf("        %s TimeWarp\n", desc.DistortionCaps & ovrDistortionCap_TimeWarp ? "SUPPORTS" : "DOES NOT SUPPORT");
+    printf("        %s Vignette\n", desc.DistortionCaps & ovrDistortionCap_Vignette ? "SUPPORTS" : "DOES NOT SUPPORT");
+    printf("    Resolution = %d x %d\n", desc.Resolution.w, desc.Resolution.h);
+    printf("    WindowsPos = (%d, %d)\n", desc.WindowsPos.x, desc.WindowsPos.y);
+    printf("    DefaultEyeFov = [(%f, %f, %f, %f), (%f, %f, %f, %f])]\n",
+           desc.DefaultEyeFov[0].UpTan, desc.DefaultEyeFov[0].DownTan, desc.DefaultEyeFov[0].LeftTan, desc.DefaultEyeFov[0].RightTan,
+           desc.DefaultEyeFov[1].UpTan, desc.DefaultEyeFov[1].DownTan, desc.DefaultEyeFov[1].LeftTan, desc.DefaultEyeFov[1].RightTan);
+    printf("    MaxEyeFov = [(%f, %f, %f, %f), (%f, %f, %f, %f])]\n",
+           desc.MaxEyeFov[0].UpTan, desc.MaxEyeFov[0].DownTan, desc.MaxEyeFov[0].LeftTan, desc.MaxEyeFov[0].RightTan,
+           desc.MaxEyeFov[1].UpTan, desc.MaxEyeFov[1].DownTan, desc.MaxEyeFov[1].LeftTan, desc.MaxEyeFov[1].RightTan);
+    printf("    EyeRenderOrder = %s, %s\n", desc.EyeRenderOrder[0] == ovrEye_Left ? "Left" : "Right", desc.EyeRenderOrder[1] == ovrEye_Left ? "Left" : "Right");
 }
 
-void CreateRenderTarget();
+void CreateRenderTarget(int width, int height);
 
 void RiftSetup()
 {
-    OVR::System::Init(OVR::Log::ConfigureDefaultLog(OVR::LogMask_All));
+    ovr_Initialize();
 
-    s_pManager = *OVR::DeviceManager::Create();
-    s_pHMD     = *s_pManager->EnumerateDevices<OVR::HMDDevice>().CreateDevice();
-
-    if (s_pHMD) {
-        OVR::HMDInfo hmd;
-        if (s_pHMD->GetDeviceInfo(&hmd))
-        {
-            DumpHMDInfo(hmd);
-        }
-
-        s_pSensor = *s_pHMD->GetSensor();
-        if (s_pSensor) {
-            s_SFusion.AttachToSensor(s_pSensor);
-            s_SFusion.SetPredictionEnabled(true);
-        }
-
-        s_SConfig.SetFullViewport(OVR::Util::Render::Viewport(0,0, hmd.HResolution, hmd.VResolution));
-        s_SConfig.SetStereoMode(OVR::Util::Render::Stereo_LeftRight_Multipass);
-
-        // Configure proper Distortion Fit.
-        // For 7" screen, fit to touch left side of the view, leaving a bit of invisible
-        // screen on the top (saves on rendering cost).
-        // For smaller screens (5.5"), fit to the top.
-        if (hmd.HScreenSize > 0.0f) {
-            if (hmd.HScreenSize > 0.140f) { // 7"
-                s_SConfig.SetDistortionFitPointVP(-1.0f, 0.0f);
-            } else {
-                s_SConfig.SetDistortionFitPointVP(0.0f, 1.0f);
-            }
-        }
-
-        printf("distortion scale = %.5f\n", s_SConfig.GetDistortionScale());
-        s_distortionScale = s_SConfig.GetDistortionScale();
-
-    } else {
-        s_distortionScale = 1.71461f;
-
-        fprintf(stderr, "NO RIFT FOUND\n");
+    s_hmd = ovrHmd_Create(0);
+    if (!s_hmd)
+    {
+        s_hmd = ovrHmd_CreateDebug(ovrHmd_DK1);
     }
 
-    CreateRenderTarget();
+    ovrHmd_GetDesc(s_hmd, &s_hmdDesc);
+    DumpHMDInfo(s_hmdDesc);
+
+    uint32_t supportedSensorCaps = ovrSensorCap_Orientation;
+    uint32_t requiredSensorCaps = ovrSensorCap_Orientation;
+    ovrBool success = ovrHmd_StartSensor(s_hmd, supportedSensorCaps, requiredSensorCaps);
+    if (!success) {
+        fprintf(stderr, "ERROR: HMD does not have required capabilities!\n");
+        exit(2);
+    }
+
+    // Figure out dimensions of render target
+    ovrSizei recommenedTex0Size = ovrHmd_GetFovTextureSize(s_hmd, ovrEye_Left, s_hmdDesc.DefaultEyeFov[0], 1.0f);
+    ovrSizei recommenedTex1Size = ovrHmd_GetFovTextureSize(s_hmd, ovrEye_Right, s_hmdDesc.DefaultEyeFov[1], 1.0f);
+    s_renderTargetSize.w = recommenedTex0Size.w + recommenedTex1Size.w;
+    s_renderTargetSize.h = std::max(recommenedTex0Size.h, recommenedTex1Size.h);
+
+    CreateRenderTarget(s_renderTargetSize.w, s_renderTargetSize.h);
+
+    s_eyeTexture[0].Header.API = ovrRenderAPI_OpenGL;
+    s_eyeTexture[0].Header.TextureSize = s_renderTargetSize;
+    s_eyeTexture[0].Header.RenderViewport.Pos = {0, 0};
+    s_eyeTexture[0].Header.RenderViewport.Size = {s_renderTargetSize.w / 2, s_renderTargetSize.h};
+    ((ovrGLTexture*)(&s_eyeTexture[0]))->OGL.TexId = s_fboTex;
+
+    s_eyeTexture[1].Header.API = ovrRenderAPI_OpenGL;
+    s_eyeTexture[1].Header.TextureSize = s_renderTargetSize;
+    s_eyeTexture[1].Header.RenderViewport.Pos = {s_renderTargetSize.w / 2, 0};
+    s_eyeTexture[1].Header.RenderViewport.Size = {s_renderTargetSize.w / 2, s_renderTargetSize.h};
+    ((ovrGLTexture*)(&s_eyeTexture[1]))->OGL.TexId = s_fboTex;
+
+    // Configure ovr SDK Rendering
+    ovrGLConfig cfg;
+    memset(&cfg, 0, sizeof(ovrGLConfig));
+    cfg.OGL.Header.API = ovrRenderAPI_OpenGL;
+    cfg.OGL.Header.RTSize = {s_config->width, s_config->height};
+    cfg.OGL.Header.Multisample = 0;
+    // TODO: on windows need to set HWND, on Linux need to set other parameters
+    if (!ovrHmd_ConfigureRendering(s_hmd, &cfg.Config, s_hmdDesc.DistortionCaps, s_hmdDesc.DefaultEyeFov, s_eyeRenderDesc))
+    {
+        fprintf(stderr, "ERROR: HMD configure rendering failed!\n");
+        exit(3);
+    }
 }
 
 void RiftShutdown()
 {
-    OVR::System::Destroy();
+    ovrHmd_Destroy(s_hmd);
+    ovr_Shutdown();
 }
 
 void Process(float dt)
 {
-    float kSpeed = 150.0f;
+    float kSpeed = 1.5f;
     Joystick* joy = JOYSTICK_GetJoystick();
     Vector3f vel(joy->axes[Joystick::LeftStickX],
                  joy->axes[Joystick::RightStickY],
@@ -142,144 +161,99 @@ void Process(float dt)
 
 void Render(float dt)
 {
+    static unsigned int frameIndex = 0;
+    frameIndex++;
+    ovrFrameTiming timing = ovrHmd_BeginFrame(s_hmd, 0);
+
+    // ovrSensorState ss = ovrHmd_GetSensorState(s_hmd, timing.ScanoutMidpointSeconds);
+    // TODO: Use this for head tracking...
+    // TODO: Use player height from SDK
+
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+
     // render into fbo
     glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
 
+    // TODO: enable this when we have more complex rendering.
+    /*
     glEnable(GL_DEPTH_TEST);
     glDisable(GL_CULL_FACE);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    */
 
     static float t = 0.0;
     t += dt;
 
-    float kHResolution = s_config->width;
-    float kVResolution = s_config->height;
-    float kHScreenSize = 0.15;
-    float kVScreenSize = 0.094;
-    float kVScreenCenter = 0.04680;
-    float kEyeToScreenDistance = 0.04100;
-    float kLensSeparationDistance = 0.06350;
-    float kInterpupillaryDistance = 0.06400;
-    Vector4f kDistortionK(1.00000, 0.22000, 0.24000, 0.00000);
-    Vector4f kChromaAbCorrection(0.99600, -0.00400, 1.01400, 0.00000);
-
-    if (s_pHMD) {
-        OVR::HMDInfo hmd;
-        if (s_pHMD->GetDeviceInfo(&hmd)) {
-            kHResolution = hmd.HResolution;
-            kVResolution = hmd.VResolution;
-            kHScreenSize = hmd.HScreenSize;
-            kVScreenSize = hmd.VScreenSize;
-            kVScreenCenter = hmd.VScreenCenter;
-            kEyeToScreenDistance = hmd.EyeToScreenDistance;
-            kLensSeparationDistance = hmd.LensSeparationDistance;
-            kInterpupillaryDistance = hmd.InterpupillaryDistance;
-            kDistortionK = Vector4f(hmd.DistortionK[0], hmd.DistortionK[1], hmd.DistortionK[2], hmd.DistortionK[3]);
-            kChromaAbCorrection = Vector4f(hmd.ChromaAbCorrection[0], hmd.ChromaAbCorrection[1], hmd.ChromaAbCorrection[2], hmd.ChromaAbCorrection[3]);
-        }
-    }
-
-    // Compute Aspect Ratio. Stereo mode cuts width in half.
-    float aspect = float(kHResolution * 0.5f) / float(kVResolution);
-
-    // Compute Vertical FOV based on distance.
-    float halfScreenDistance = (kVScreenSize / 2);
-    float yfov = 2.0f * atan(halfScreenDistance/kEyeToScreenDistance);
-
-    // Post-projection viewport coordinates range from (-1.0, 1.0), with the
-    // center of the left viewport falling at (1/4) of horizontal screen size.
-    // We need to shift this projection center to match with the lens center.
-    // We compute this shift in physical units (meters) to correct
-    // for different screen sizes and then rescale to viewport coordinates.
-    float eyeProjectionShift     = kHScreenSize * 0.25f - kLensSeparationDistance*0.5f;
-    float projectionCenterOffset = 4.0f * eyeProjectionShift / kHScreenSize;
-
-    // Projection matrix for the "center eye", which the left/right matrices are based on.
-    Matrixf projCenter = Matrixf::Frustum(yfov, aspect, 15.0f, 5000.0f);
-    Matrixf projLeft   = Matrixf::Trans(Vector3f(projectionCenterOffset, 0, 0)) * projCenter;
-    Matrixf projRight  = Matrixf::Trans(Vector3f(-projectionCenterOffset, 0, 0)) * projCenter;
-
-    OVR::Quatf q = s_SFusion.GetOrientation();
-    Matrixf cameraMatrix = Matrixf::QuatTrans(Quatf(q.x, q.y, q.z, q.w),
-                                              s_cameraPos);
-    Matrixf viewCenter = cameraMatrix.OrthoInverse();
-
-    // View transformation translation in world units.
-    float halfIPD = kInterpupillaryDistance * 0.5f * kMetersToCm;
-    Matrixf viewLeft = Matrixf::Trans(Vector3f(halfIPD, 0, 0)) * viewCenter;
-    Matrixf viewRight = Matrixf::Trans(Vector3f(-halfIPD, 0, 0)) * viewCenter;
-
-    int rtWidth = (int)ceil(s_distortionScale * kHResolution);
-    int rtHeight = (int)ceil(s_distortionScale * kVResolution);
-
-    glViewport(0, 0, rtWidth, rtHeight);
-    glDisable(GL_SCISSOR_TEST);
+    // clear render target
+    glViewport(0, 0, s_renderTargetSize.w, s_renderTargetSize.h);
     glClearColor(s_clearColor.x, s_clearColor.y, s_clearColor.z, s_clearColor.w);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    for (int i = 0; i < 2; i++) {
-        bool left = i == 0;
+    for (int i = 0; i < 2; i++)
+    {
+        ovrEyeType eye = s_hmdDesc.EyeRenderOrder[i];
+        ovrPosef pose = ovrHmd_BeginEyeRender(s_hmd, eye);
 
-        if (left) {
-            glViewport(0, 0, rtWidth / 2, rtHeight);
-        } else {
-            glViewport(rtWidth / 2, 0, rtWidth / 2, rtHeight);
-        }
+        glViewport(s_eyeTexture[eye].Header.RenderViewport.Pos.x,
+                   s_eyeTexture[eye].Header.RenderViewport.Pos.y,
+                   s_eyeTexture[eye].Header.RenderViewport.Size.w,
+                   s_eyeTexture[eye].Header.RenderViewport.Size.h);
 
-        Matrixf projMatrix = left ? projLeft : projRight;
-        Matrixf viewMatrix = left ? viewLeft : viewRight;
+        Quatf q(pose.Orientation.x, pose.Orientation.y, pose.Orientation.z, pose.Orientation.w);
+        Vector3f p(pose.Position.x, pose.Position.y, pose.Position.z);
 
+        Matrixf cameraMatrix = Matrixf::QuatTrans(q, s_cameraPos);
+        Matrixf viewCenter = cameraMatrix.OrthoInverse();
+
+        // let ovr compute projection matrix, cause it's hard.
+        ovrMatrix4f ovrProj = ovrMatrix4f_Projection(s_eyeRenderDesc[eye].Fov, 0.01f, 10000.0f, true);
+
+        // convert to abaci matrix
+        Matrixf projMatrix = Matrixf::Rows(Vector4f(ovrProj.M[0][0], ovrProj.M[0][1], ovrProj.M[0][2], ovrProj.M[0][3]),
+                                           Vector4f(ovrProj.M[1][0], ovrProj.M[1][1], ovrProj.M[1][2], ovrProj.M[1][3]),
+                                           Vector4f(ovrProj.M[2][0], ovrProj.M[2][1], ovrProj.M[2][2], ovrProj.M[2][3]),
+                                           Vector4f(ovrProj.M[3][0], ovrProj.M[3][1], ovrProj.M[3][2], ovrProj.M[3][3]));
+
+        // use EyeRenderDesc.ViewAdjust to do eye offset.
+        Matrixf viewMatrix = viewCenter * Matrixf::Trans(Vector3f(s_eyeRenderDesc[eye].ViewAdjust.x,
+                                                                  s_eyeRenderDesc[eye].ViewAdjust.y,
+                                                                  s_eyeRenderDesc[eye].ViewAdjust.z));
+
+        // compute model matrix for terminal
         const float kTermScale = 0.43f;
         Matrixf modelMatrix = Matrixf::ScaleQuatTrans(Vector3f(kTermScale, -kTermScale, kTermScale),
                                                       Quatf::AxisAngle(Vector3f(0, 1, 0), 0),
-                                                      Vector3f(-10 * kFeetToCm,
-                                                               25 * kFeetToCm,
-                                                               -10 * kFeetToCm));
+                                                      Vector3f(-10 * kFeetToMeters, 25 * kFeetToMeters, -10 * kFeetToMeters));
         RenderBegin();
 
         RenderFloor(projMatrix, viewMatrix, 0.0f);
 
+        // AJT: TEXT RENDERING IS DISABLED, DUE TO BUGS
+        /*
         RenderTextBegin(projMatrix, viewMatrix, modelMatrix);
-        for (int i = 0; i < win_get_text_count(); i++)
+        for (int j = 0; i < win_get_text_count(); j++)
         {
-            gb::Text* text = (gb::Text*)win_get_text(i);
-            RenderText(text->GetQuadVec());
+            gb::Text* text = (gb::Text*)win_get_text(j);
+            if (text)
+            {
+                RenderText(text->GetQuadVec());
+            }
         }
         RenderTextEnd();
+        */
 
         RenderEnd();
+        ovrHmd_EndEyeRender(s_hmd, eye, pose, &s_eyeTexture[eye]);
     }
 
-    // now render a full screen quad using the fbo as a texture
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
-    glClearColor(s_clearColor.x, s_clearColor.y, s_clearColor.z, s_clearColor.w);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    RenderPostProcessWarp(s_SConfig, s_fboTex, true);
-    RenderPostProcessWarp(s_SConfig, s_fboTex, false);
-
-    GL_ERROR_CHECK("Render");
+    ovrHmd_EndFrame(s_hmd);
 }
 
-void CreateRenderTarget()
+void CreateRenderTarget(int width, int height)
 {
-    float kHResolution = s_config->width;
-    float kVResolution = s_config->height;
-
-    if (s_pHMD) {
-        OVR::HMDInfo hmd;
-        if (s_pHMD->GetDeviceInfo(&hmd)) {
-            kHResolution = hmd.HResolution;
-            kVResolution = hmd.VResolution;
-        }
-    }
-
-    int rtWidth = (int)ceil(s_distortionScale * kHResolution);
-    int rtHeight = (int)ceil(s_distortionScale * kVResolution);
-
-    printf("Render Target size %d x %d\n", rtWidth, rtHeight);
+    printf("Render Target size %d x %d\n", width, height);
 
     // create a fbo
     glGenFramebuffers(1, &s_fbo);
@@ -306,7 +280,7 @@ void CreateRenderTarget()
 
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, rtWidth, rtHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, 0);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, 0);
 
     // attach texture to fbo
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
@@ -315,7 +289,7 @@ void CreateRenderTarget()
     // init depth buffer
     glBindRenderbuffer(GL_RENDERBUFFER, s_fboDepth);
 
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, rtWidth, rtHeight);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16, width, height);
 
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, s_fboDepth);
 
@@ -327,12 +301,14 @@ void CreateRenderTarget()
 
 int main(int argc, char* argv[])
 {
-    s_config = new AppConfig(true, false, 1280, 800);
-    SDL_Init(SDL_INIT_EVERYTHING);
+    bool fullscreen = false;
+    s_config = new AppConfig(fullscreen, false, 1280, 800);
+    SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK);
     SDL_Window* displayWindow;
     SDL_Renderer* displayRenderer;
 
-	int err = SDL_CreateWindowAndRenderer(s_config->width, s_config->height, SDL_WINDOW_OPENGL, &displayWindow, &displayRenderer);
+    uint32_t flags = SDL_WINDOW_OPENGL | (s_config->fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+	int err = SDL_CreateWindowAndRenderer(s_config->width, s_config->height, flags, &displayWindow, &displayRenderer);
 	if (err == -1 || !displayWindow || !displayRenderer) {
 		fprintf(stderr, "SDL_CreateWindowAndRenderer failed!\n");
 	}
@@ -356,10 +332,12 @@ int main(int argc, char* argv[])
     //SDL_WM_SetCaption(config.title.c_str(), config.title.c_str());
     //SDL_EnableKeyRepeat(SDL_DEFAULT_REPEAT_DELAY, SDL_DEFAULT_REPEAT_INTERVAL);
 
+    /*
     // clear
     glClearColor(s_clearColor.x, s_clearColor.y, s_clearColor.z, s_clearColor.w);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     SDL_GL_SwapWindow(displayWindow);
+    */
 
     RiftSetup();
 
@@ -456,7 +434,6 @@ int main(int argc, char* argv[])
 
             Process(dt);
             Render(dt);
-            SDL_GL_SwapWindow(displayWindow);
         }
     }
 

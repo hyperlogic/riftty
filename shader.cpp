@@ -84,10 +84,15 @@ static bool _Link(GLint *program, GLint vertShader, GLint fragShader)
     return linked;
 }
 
+static int s_maxVertexAttribs = 0;
 
 Shader::Shader() : m_vertShader(0), m_fragShader(0), m_program(0)
 {
-
+    // HACK: should probably do this in a renderer object
+    if (s_maxVertexAttribs == 0)
+    {
+        glGetIntegerv(GL_MAX_VERTEX_ATTRIBS, &s_maxVertexAttribs);
+    }
 }
 
 Shader::~Shader()
@@ -217,12 +222,15 @@ void Shader::apply(const Shader* prev) const
     assert(m_program);
     glUseProgram(m_program);
 
-    uint64_t diff = m_attribLocMask;
+    uint32_t diff = m_attribLocMask;
     if (prev)
         diff = m_attribLocMask ^ prev->m_attribLocMask;
+    else
+        diff = -1;  // assume the worst!
 
     if (diff) {
-        for (int i = 0; i < 32; i++) {
+        const int kNumVertexAttribs = std::min(s_maxVertexAttribs, 32);
+        for (int i = 0; i < kNumVertexAttribs; i++) {
             if (diff & (1 << i)) {
                 if (m_attribLocMask & (1 << i)) {
                     glEnableVertexAttribArray(i);

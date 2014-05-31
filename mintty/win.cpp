@@ -75,7 +75,10 @@ int win_get_text_count(void)
 
 void* win_get_text(int i)
 {
-    return (void*)(s_context->textVec[i].get());
+    if (i < 0 || i >= s_context->textVec.size())
+        return nullptr;
+    else
+        return (void*)(s_context->textVec[i].get());
 }
 
 static void init_colors(void)
@@ -100,10 +103,11 @@ static void init_colors(void)
     s_ansi_colors[BOLD_WHITE_I] = MakeColor(233, 235, 235);
 
     int r, g, b;
-    for (r = 0; r < 16; r++) {
-        for (g = 0; g < 16; g++) {
-            for (b = 0; b < 16; b++) {
-                s_ansi_colors[36 * r + 6 * g + b + 16] = MakeColor(r * 17, g * 17, b * 17);
+    for (r = 0; r < 6; r++) {
+        for (g = 0; g < 6; g++) {
+            for (b = 0; b < 6; b++) {
+                assert((36 * r + 6 * g + b + 16) < COLOUR_NUM);
+                s_ansi_colors[36 * r + 6 * g + b + 16] = MakeColor(r * 42, g * 42, b * 42);
             }
         }
     }
@@ -111,6 +115,7 @@ static void init_colors(void)
     int i;
     for (i = 0; i < 23; i++) {
         uint8_t intensity = (uint8_t)((i + 1) * (255.0f / 24.0f));
+        assert((232 + i) < COLOUR_NUM);
         s_ansi_colors[232 + i] = MakeColor(intensity, intensity, intensity);
     }
 
@@ -135,6 +140,7 @@ void win_init(void)
     s_context->font = std::make_shared<gb::Font>("font/DejaVuSansMono-Bold.ttf", 32, 0,
                                                  gb::FontRenderOption_Normal,
                                                  gb::FontHintOption_None);
+
     s_context->max_advance = s_context->font->GetMaxAdvance();
     s_context->line_height = s_context->font->GetLineHeight();
 }

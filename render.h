@@ -19,9 +19,7 @@ void RenderText(const std::vector<gb::Quad>& quadVec);
 void RenderTextEnd();
 
 void RenderFloor(const Matrixf& projMatrix, const Matrixf& viewMatrix, float height);
-
-void RenderFullScreenQuad(uint32_t texture, float width, float height);
-void RenderPostProcessWarp(OVR::Util::Render::StereoConfig& stereoConfig, uint32_t texture, bool left);
+void RenderScreenAlignedQuad(unsigned int texture, Vector2f viewportSize, Vector2f quadPos, Vector2f quadSize);
 
 #ifdef DEBUG
 #define GL_ERROR_CHECK(x) GLErrorCheck(x)
