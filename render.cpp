@@ -180,7 +180,7 @@ void RenderText(const std::vector<gb::Quad>& quadVec)
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, indices);
     }
 
-    const float kDepthOffset = 3.0f;
+    const float kDepthOffset = 1.0f;
     for (auto &quad : quadVec) {
         const WIN_TextUserData* data = (const WIN_TextUserData*)quad.userData;
 
@@ -242,9 +242,9 @@ void RenderFloor(const Matrixf& projMatrix, const Matrixf& viewMatrix, float hei
         s_phongTexturedShader->setLightColor(lightColor);
 
         std::vector<float> lightStrength;
-        lightStrength.push_back(200);
-        lightStrength.push_back(100);
-        lightStrength.push_back(100);
+        lightStrength.push_back(20);
+        lightStrength.push_back(10);
+        lightStrength.push_back(10);
         s_phongTexturedShader->setLightStrength(lightStrength);
 
         s_phongTexturedShader->setNumLights(3);

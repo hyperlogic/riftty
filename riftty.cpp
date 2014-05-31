@@ -176,12 +176,10 @@ void Render(float dt)
     glBindFramebuffer(GL_FRAMEBUFFER, s_fbo);
 
     // TODO: enable this when we have more complex rendering.
-    /*
     glEnable(GL_DEPTH_TEST);
     glDisable(GL_CULL_FACE);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    */
 
     static float t = 0.0;
     t += dt;
@@ -208,7 +206,7 @@ void Render(float dt)
         Matrixf viewCenter = cameraMatrix.OrthoInverse();
 
         // let ovr compute projection matrix, cause it's hard.
-        ovrMatrix4f ovrProj = ovrMatrix4f_Projection(s_eyeRenderDesc[eye].Fov, 0.01f, 10000.0f, true);
+        ovrMatrix4f ovrProj = ovrMatrix4f_Projection(s_eyeRenderDesc[eye].Fov, 0.1f, 10000.0f, true);
 
         // convert to abaci matrix
         Matrixf projMatrix = Matrixf::Rows(Vector4f(ovrProj.M[0][0], ovrProj.M[0][1], ovrProj.M[0][2], ovrProj.M[0][3]),
@@ -222,18 +220,16 @@ void Render(float dt)
                                                                   s_eyeRenderDesc[eye].ViewAdjust.z));
 
         // compute model matrix for terminal
-        const float kTermScale = 0.43f;
+        const float kTermScale = 0.0043f;
         Matrixf modelMatrix = Matrixf::ScaleQuatTrans(Vector3f(kTermScale, -kTermScale, kTermScale),
                                                       Quatf::AxisAngle(Vector3f(0, 1, 0), 0),
-                                                      Vector3f(-10 * kFeetToMeters, 25 * kFeetToMeters, -10 * kFeetToMeters));
+                                                      Vector3f(-10 * kFeetToMeters, 15 * kFeetToMeters, -10 * kFeetToMeters));
         RenderBegin();
 
         RenderFloor(projMatrix, viewMatrix, 0.0f);
 
-        // AJT: TEXT RENDERING IS DISABLED, DUE TO BUGS
-        /*
         RenderTextBegin(projMatrix, viewMatrix, modelMatrix);
-        for (int j = 0; i < win_get_text_count(); j++)
+        for (int j = 0; j < win_get_text_count(); j++)
         {
             gb::Text* text = (gb::Text*)win_get_text(j);
             if (text)
@@ -242,7 +238,6 @@ void Render(float dt)
             }
         }
         RenderTextEnd();
-        */
 
         RenderEnd();
         ovrHmd_EndEyeRender(s_hmd, eye, pose, &s_eyeTexture[eye]);
@@ -301,7 +296,7 @@ void CreateRenderTarget(int width, int height)
 
 int main(int argc, char* argv[])
 {
-    bool fullscreen = false;
+    bool fullscreen = true;
     s_config = new AppConfig(fullscreen, false, 1280, 800);
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK);
     SDL_Window* displayWindow;
@@ -349,8 +344,8 @@ int main(int argc, char* argv[])
     cs_init();  // TODO: code pages do not want
 
     // TODO: determine this based on window-size & font-size or vice versa.
-    cfg.rows = 47;
-    cfg.cols = 127;
+    cfg.rows = 25;
+    cfg.cols = 80;
 
     // TODO: load config from /etc/riffty or ~/.rifttyrc
     finish_config();
