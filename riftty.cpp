@@ -22,6 +22,7 @@
 #include <sys/mman.h>
 #include <fcntl.h>
 #include <sys/stat.h>
+#include <signal.h>
 
 #include "render.h"
 #include "shader.h"
@@ -220,10 +221,11 @@ void Render(float dt)
                                                                   s_eyeRenderDesc[eye].ViewAdjust.z));
 
         // compute model matrix for terminal
-        const float kTermScale = 0.0043f;
+        const float kTermScale = 0.001f;
+        const Vector3f termOrigin(-2 * kFeetToMeters, 6.5 * kFeetToMeters, -2.5 * kFeetToMeters);
         Matrixf modelMatrix = Matrixf::ScaleQuatTrans(Vector3f(kTermScale, -kTermScale, kTermScale),
                                                       Quatf::AxisAngle(Vector3f(0, 1, 0), 0),
-                                                      Vector3f(-10 * kFeetToMeters, 15 * kFeetToMeters, -10 * kFeetToMeters));
+                                                      termOrigin);
         RenderBegin();
 
         RenderFloor(projMatrix, viewMatrix, 0.0f);
@@ -294,8 +296,31 @@ void CreateRenderTarget(int width, int height)
     GL_ERROR_CHECK("RenderTargetInit");
 }
 
+void Restart(int signal)
+{
+    execl("riftty", "riftty");
+}
+
+void Ignore(int signal)
+{
+    exit(0);
+}
+
 int main(int argc, char* argv[])
 {
+    /*
+    // Send SIGUSR1 to previously running instance
+    if (!system("pkill -30 -o riftty"))
+    {
+        exit(1);
+    }
+
+    if (signal(SIGUSR1, Restart) == SIG_ERR) {
+        fprintf(stderr, "An error occurred while setting a signal handler.\n");
+        exit(1);
+    }
+    */
+
     bool fullscreen = true;
     s_config = new AppConfig(fullscreen, false, 1280, 800);
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK);

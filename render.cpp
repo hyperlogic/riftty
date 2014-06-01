@@ -156,6 +156,13 @@ void RenderText(const std::vector<gb::Quad>& quadVec)
 {
     static uint16_t indices[] = {0, 2, 1, 2, 3, 1};
 
+    glDepthMask(GL_FALSE);
+
+    Vector2f minCorner(FLT_MAX, FLT_MAX);
+    Vector2f maxCorner(-FLT_MAX, -FLT_MAX);
+
+    // draw bg quads
+    int i = 0;
     for (auto &quad : quadVec)
     {
         const WIN_TextUserData* data = (const WIN_TextUserData*)quad.userData;
@@ -167,29 +174,38 @@ void RenderText(const std::vector<gb::Quad>& quadVec)
         Vector2f origin = Vector2f(quad.pen.x, quad.pen.y + y_offset);
         Vector2f size = Vector2f(data->max_advance, -(float)data->line_height);
 
+        if (i == 0)
+            minCorner = origin;
+        else if (i == quadVec.size() - 1)
+            maxCorner = origin + size;
+
         float pos[12] = {
             origin.x, origin.y, 0,
             origin.x + size.x, origin.y, 0,
             origin.x, origin.y + size.y, 0,
-            origin.x + size.x, origin.y + size.y
+            origin.x + size.x, origin.y + size.y, 0
         };
 
         s_fullbrightShader->apply(s_prevShader, pos);
         s_prevShader = s_fullbrightShader;
 
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, indices);
+        i++;
     }
 
-    const float kDepthOffset = 1.0f;
+    // draw fg glyphs
+    const float kDepthOffset = 0.0f;
     for (auto &quad : quadVec) {
         const WIN_TextUserData* data = (const WIN_TextUserData*)quad.userData;
 
         if (quad.size.x > 0 && quad.size.y > 0)
         {
-            Vector2f origin = Vector2f(quad.origin.x, quad.origin.y);
-            Vector2f size = Vector2f(quad.size.x, quad.size.y);
-            Vector2f uv_origin = Vector2f(quad.uvOrigin.x, quad.uvOrigin.y);
-            Vector2f uv_size = Vector2f(quad.uvSize.x, quad.uvSize.y);
+            const float inset = 2.0f;
+            const float uvInset = inset / 1024.0f; // HACK 1024 is hardcoded size of font texture cache.
+            Vector2f origin = Vector2f(quad.origin.x + inset, quad.origin.y + inset);
+            Vector2f size = Vector2f(quad.size.x - 2*inset, quad.size.y - 2*inset);
+            Vector2f uv_origin = Vector2f(quad.uvOrigin.x + uvInset, quad.uvOrigin.y + uvInset);
+            Vector2f uv_size = Vector2f(quad.uvSize.x - 2*uvInset, quad.uvSize.y - 2*uvInset);
             float attrib[20] = {
                 origin.x, origin.y, kDepthOffset, uv_origin.x, uv_origin.y,
                 origin.x + size.x, origin.y, kDepthOffset, uv_origin.x + uv_size.x, uv_origin.y,
@@ -199,12 +215,36 @@ void RenderText(const std::vector<gb::Quad>& quadVec)
 
             s_fullbrightTexturedTextShader->setColor(UintColorToVector4(data->fg_color));
             s_fullbrightTexturedTextShader->setTex(quad.glTexObj);
+            s_fullbrightTexturedTextShader->setLodBias(-1.0f);
             s_fullbrightTexturedTextShader->apply(s_prevShader, attrib);
             s_prevShader = s_fullbrightTexturedTextShader;
 
             glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, indices);
         }
     }
+
+    // paint depth
+    glDepthMask(GL_TRUE);
+    glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
+
+    if (quadVec.size())
+    {
+        float pos[12] = {
+            minCorner.x, minCorner.y, 0,
+            maxCorner.x, minCorner.y, 0,
+            minCorner.x, maxCorner.y, 0,
+            maxCorner.x, maxCorner.y, 0
+        };
+
+        s_fullbrightShader->apply(s_prevShader, pos);
+        s_prevShader = s_fullbrightShader;
+
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, indices);
+    }
+
+    glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+
+    // enable
     GL_ERROR_CHECK("TextRenderFunc");
 }
 

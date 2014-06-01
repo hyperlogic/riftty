@@ -137,7 +137,7 @@ void win_init(void)
 
     s_context = new WIN_Context();
 
-    s_context->font = std::make_shared<gb::Font>("font/DejaVuSansMono-Bold.ttf", 32, 0,
+    s_context->font = std::make_shared<gb::Font>("font/DejaVuSansMono-Bold.ttf", 32, 4,
                                                  gb::FontRenderOption_Normal,
                                                  gb::FontHintOption_None);
 
