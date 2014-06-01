@@ -40,7 +40,7 @@ extern "C" {
 
 const float kFeetToMeters = 0.3048;
 
-Vector4f s_clearColor(0, 0, 0.2, 1);
+Vector4f s_clearColor(0.0, 0, 0.3, 1);
 
 // time tracking
 unsigned int s_ticks = 0;
@@ -222,7 +222,7 @@ void Render(float dt)
 
         // compute model matrix for terminal
         const float kTermScale = 0.001f;
-        const Vector3f termOrigin(-2 * kFeetToMeters, 6.5 * kFeetToMeters, -2.5 * kFeetToMeters);
+        const Vector3f termOrigin(-2 * kFeetToMeters, 6.75f * kFeetToMeters, -2.5 * kFeetToMeters);
         Matrixf modelMatrix = Matrixf::ScaleQuatTrans(Vector3f(kTermScale, -kTermScale, kTermScale),
                                                       Quatf::AxisAngle(Vector3f(0, 1, 0), 0),
                                                       termOrigin);
@@ -296,30 +296,36 @@ void CreateRenderTarget(int width, int height)
     GL_ERROR_CHECK("RenderTargetInit");
 }
 
-void Restart(int signal)
+static bool s_needsRestart = false;
+void RestartHandler(int signal)
 {
-    execl("riftty", "riftty");
+    printf("NEEDS RESTART! pid = %d\n", getpid());
+    // NOTE: I could call execvp directly here, but the process will
+    // inherit the signal mask which will not let me hook up the SIGUSR1 handler.
+    // So we set a flag instead.
+    s_needsRestart = true;
 }
 
-void Ignore(int signal)
+void Restart()
 {
-    exit(0);
+    printf("RESTART! pid = %d\n", getpid());
+    char* const argv[] = {"./riftty", NULL};
+    int err = execvp(*argv, argv);
+    if (err == -1)
+        perror("execvp");
 }
 
 int main(int argc, char* argv[])
 {
-    /*
-    // Send SIGUSR1 to previously running instance
-    if (!system("pkill -30 -o riftty"))
-    {
-        exit(1);
-    }
+    printf("START! pid = %d\n", getpid());
 
-    if (signal(SIGUSR1, Restart) == SIG_ERR) {
+    if (!system("./restart.rb"))
+        exit(1);
+
+    if (signal(SIGUSR1, RestartHandler) == SIG_ERR) {
         fprintf(stderr, "An error occurred while setting a signal handler.\n");
         exit(1);
     }
-    */
 
     bool fullscreen = true;
     s_config = new AppConfig(fullscreen, false, 1280, 800);
@@ -366,6 +372,8 @@ int main(int argc, char* argv[])
     win_init();
 
     init_config();
+    // TODO: load_config("~/.riftty");
+
     cs_init();  // TODO: code pages do not want
 
     // TODO: determine this based on window-size & font-size or vice versa.
@@ -446,6 +454,9 @@ int main(int argc, char* argv[])
 
         if (!done)
         {
+            if (s_needsRestart)
+                Restart();
+
             unsigned int now = SDL_GetTicks();  // milliseconds
             float dt = (now - s_ticks) / 1000.0f;	// convert to seconds.
             s_ticks = now;
