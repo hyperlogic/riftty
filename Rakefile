@@ -209,6 +209,123 @@ task :tags do
   src_files.each {|f| sh "etags -a #{f}"}
 end
 
+desc "make an .app"
+task :package do
+  package_app_macos "riftty"
+end
+
+def package_app_macos app_name
+  puts "Packaging #{app_name} for MacOSX"
+
+  make_package_macos app_name
+
+=begin
+  # copy application into app dir
+  if File.exists? "#{app_name}.rb"
+    # simple app with only a single .rb file
+    sh "cp #{app_name}.rb package/#{app_name}.app/Contents/MacOS/"
+  elsif File.exists? "app/#{app_name}/#{app_name}.rb"
+    # copy entire app sub-dir into package
+    sh "cp -R app/#{app_name}/ package/#{app_name}.app/Contents/MacOS/app/#{app_name}/"
+  else
+    raise "Cannot Find app #{app_name}"
+  end
+=end
+
+  # zip it up
+  sh "cd package; zip -rq #{app_name}.zip #{app_name}.app"
+
+  # remove the app dir
+  #sh "rm -rf package/#{app_name}.app"
+
+  puts ""
+  puts "Finished : package/#{app_name}.zip"
+end
+
+def gsub_file filename, pattern, replace
+  str = File.open(filename, "r") {|file| file.read}
+  str.gsub! pattern, replace
+  File.open(filename, "w") {|file| file.write str}
+end
+
+def make_package_macos app_name
+
+  # delete the zip and app if it already exists
+  sh "rm -rf package/#{app_name}.zip"
+  sh "rm -rf package/#{app_name}.app"
+
+  # create the app dir & copy the base resources into it.
+  sh "mkdir package/#{app_name}.app"
+  sh "cp -r package/mac_app/ package/#{app_name}.app/"
+
+  # Copy riftty into app/Contents/MacOS
+  dir_list = ['shader', 'font']
+  dir_list.each do |dir|
+    sh "cp -r #{dir}/ package/#{app_name}.app/Contents/MacOS/#{dir}"
+  end
+
+  # copy exe
+  file_list = ['riftty']
+  file_list.each do |file|
+    sh "cp #{file} package/#{app_name}.app/Contents/MacOS/"
+  end
+
+  # make sure wrapper script is executable.
+  sh "chmod +x package/#{app_name}.app/Contents/MacOS/launch"
+
+  # get a list of all non-system dylibs referenced
+  dylibs = list_dylibs app_name, 'riftty'
+
+  # print out libs
+  # puts ""
+  # puts "libs"
+  # dylibs.each do |lib|
+  #   puts "    #{lib}"
+  # end
+  # puts ""
+
+  # copy dylibs into app dir
+  dylibs.each do |lib|
+    sh "cp #{lib} package/#{app_name}.app/Contents/MacOS/"
+    sh "chmod 777 package/#{app_name}.app/Contents/MacOS/#{File.basename(lib)}"
+  end
+
+  # use install_name_tool to fix up the install_names
+  (dylibs + ['riftty']).each do |lib|
+    otool(lib).each do |sub_lib|
+      sh "install_name_tool -change #{sub_lib} @executable_path/#{File.basename sub_lib} package/#{app_name}.app/Contents/MacOS/#{File.basename lib}"
+    end
+  end
+
+end
+
+# returns the non-system dependencies of a given dylib
+def otool filename
+  # run otool to get a list of dylib dependencies.
+  otool_output = `otool -L #{filename}`
+
+  # strip out everything except the dylib path
+  dylibs = otool_output.split("\n").map {|line| line.lstrip}[1..-1]
+  dylibs.map! {|line| line.split("(")[0].rstrip}
+
+  # remove any dylibs in /System/Library or /usr/lib
+  dylibs.delete_if {|lib| lib =~ /(System\/Library\/)|(usr\/lib\/)/}
+  dylibs
+end
+
+# recursivly builds a list of a libs runtime dependencies
+def list_dylibs app_name, filename, list = []
+  otool(filename).each do |lib|
+    if !list.include? lib
+      list.push lib
+      list_dylibs app_name, lib, list
+    end
+  end
+  list
+end
+
+
+
 CLEAN.include $DEPS, $OBJECTS, $GEN_HEADERS
 CLOBBER.include $EXE
 

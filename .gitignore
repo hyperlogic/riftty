@@ -4,6 +4,10 @@ riftty
 TAGS
 .DS_Store
 
+# generated app files
+package/riftty.app/
+package/riftty.zip
+
 # generated shader headers
 FullbrightShader.h
 FullbrightTexturedShader.h
