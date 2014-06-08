@@ -8,6 +8,9 @@ TAGS
 package/riftty.app/
 package/riftty.zip
 
+# don't check in "secret" deploy script
+deploy
+
 # generated shader headers
 FullbrightShader.h
 FullbrightTexturedShader.h
