@@ -416,7 +416,7 @@ int main(int argc, char* argv[])
     winsize ws = {rows, cols, term_width, term_height};
     child_create(login_argv, &ws);
 
-    int done = 0;
+    bool done = false;
     while (!done)
     {
         JOYSTICK_ClearFlags();
@@ -427,7 +427,7 @@ int main(int argc, char* argv[])
             switch (event.type)
             {
             case SDL_QUIT:
-                done = 1;
+                done = true;
                 break;
 
             case SDL_MOUSEMOTION:
@@ -459,7 +459,9 @@ int main(int argc, char* argv[])
 
             case SDL_KEYDOWN:
             case SDL_KEYUP:
-                ProcessKeyEvent(&event.key);
+                if (ProcessKeyEvent(&event.key)) {
+                    done = true;
+                }
                 break;
             }
         }

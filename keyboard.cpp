@@ -64,6 +64,9 @@ struct ModState {
     bool lalt;
     bool ralt;
     bool alt;
+    bool lmeta;
+    bool rmeta;
+    bool meta;
     bool lctrl;
     bool rctrl;
     bool ctrl;
@@ -162,7 +165,7 @@ void ctrl_ch(ModState mod_state, uchar c)
 
 #define CDEL 0x0007f
 
-void ProcessKeyEvent(SDL_KeyboardEvent* key)
+bool ProcessKeyEvent(SDL_KeyboardEvent* key)
 {
     bool down = (key->type == SDL_KEYDOWN);
     int sym = key->keysym.sym;
@@ -176,17 +179,27 @@ void ProcessKeyEvent(SDL_KeyboardEvent* key)
     if (cfg.swap_alt_and_meta_keys) {
         mod_state.lalt = (mod & KMOD_LGUI) != 0;
         mod_state.ralt = (mod & KMOD_RGUI) != 0;
+        mod_state.lmeta = (mod & KMOD_LALT) != 0;
+        mod_state.rmeta = (mod & KMOD_RALT) != 0;
     } else {
         mod_state.lalt = (mod & KMOD_LALT) != 0;
         mod_state.ralt = (mod & KMOD_RALT) != 0;
+        mod_state.lmeta = (mod & KMOD_LGUI) != 0;
+        mod_state.rmeta = (mod & KMOD_RGUI) != 0;
     }
     mod_state.alt = mod_state.lalt || mod_state.ralt;
+    mod_state.meta = mod_state.lmeta || mod_state.rmeta;
     mod_state.lctrl = (mod & KMOD_LCTRL) != 0;
     mod_state.rctrl = (mod & KMOD_RCTRL) != 0;
     mod_state.ctrl = mod_state.lctrl || mod_state.rctrl;
     mod_state.ctrl_lalt_altgr = cfg.ctrl_alt_is_altgr & mod_state.ctrl & mod_state.lalt & !mod_state.ralt,
         mod_state.altgr = mod_state.ralt | mod_state.ctrl_lalt_altgr;
     mod_state.mods = mod_state.shift * MDK_SHIFT | mod_state.alt * MDK_ALT | mod_state.ctrl * MDK_CTRL;
+
+    // check for magic quit (meta + esc)
+    if (down && sym == SDLK_ESCAPE && mod_state.meta) {
+        return true;
+    }
 
     if (down) {
         switch (sym) {
@@ -345,4 +358,5 @@ void ProcessKeyEvent(SDL_KeyboardEvent* key)
         }
         }
     }
+    return false; // don't quit
 }

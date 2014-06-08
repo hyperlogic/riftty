@@ -4,6 +4,8 @@
 #include <SDL2/SDL.h>
 
 void KeyboardInit();
-void ProcessKeyEvent(SDL_KeyboardEvent* key);
+
+// return true for magic quit event (meta + esc)
+bool ProcessKeyEvent(SDL_KeyboardEvent* key);
 
 #endif
