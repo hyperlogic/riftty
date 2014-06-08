@@ -7,4 +7,4 @@ Terminal emulator meant for use with the Oculus Rift headseat.
 
 ## Download
 
-[riffty.zip](http://www.hyperlogic.org/riftty.zip) - For MacOSX 10.9
+[riftty.zip](http://www.hyperlogic.org/riftty.zip) - For MacOSX 10.9
