@@ -24,6 +24,10 @@
 #include <sys/stat.h>
 #include <signal.h>
 
+#include <unistd.h>
+#include <sys/types.h>
+#include <pwd.h>
+
 #include "render.h"
 #include "shader.h"
 
@@ -372,7 +376,13 @@ int main(int argc, char* argv[])
     win_init();
 
     init_config();
-    // TODO: load_config("~/.riftty");
+
+    struct passwd *pw = getpwuid(getuid());
+    const char *homedir = pw->pw_dir;
+    char config_filename[512];
+    strncpy(config_filename, homedir, 512);
+    strncat(config_filename, "/.riftty", 512);
+    load_config(config_filename);
 
     cs_init();  // TODO: code pages do not want
 
@@ -398,7 +408,9 @@ int main(int argc, char* argv[])
     unsigned short term_width = font_width * cfg.cols;
     unsigned short term_height = font_height * cfg.rows;
 
-    const char* login_argv[] = {"login", "-pfl", "ajt", NULL};
+    char login[128];
+    strncpy(login, getlogin(), 128);
+    const char* login_argv[] = {"login", "-pfl", login, NULL};
     unsigned short rows = cfg.rows;
     unsigned short cols = cfg.cols;
     winsize ws = {rows, cols, term_width, term_height};

@@ -45,7 +45,7 @@ const config default_cfg = {
   .zoom_shortcuts = true,
   .alt_fn_shortcuts = true,
   .ctrl_shift_shortcuts = false,
-  .swap_alt_and_meta_keys = true,
+  .swap_alt_and_meta_keys = false,
   // Mouse
   .copy_on_select = true,
   .copy_as_rtf = true,
