@@ -70,10 +70,10 @@ void DumpHMDInfo(const ovrHmdDesc& desc)
     printf("    HmdCaps = 0x%x\n", desc.HmdCaps);
     printf("        %s Present\n", desc.HmdCaps & ovrHmdCap_Present ? "IS" : "IS NOT");
     printf("        %s Available\n", desc.HmdCaps & ovrHmdCap_Available ? "IS" : "IS NOT");
-    printf("    SensorCaps = 0x%x\n", desc.SensorCaps);
-    printf("        %s Orientation\n", desc.SensorCaps & ovrSensorCap_Orientation ? "SUPPORTS" : "DOES NOT SUPPORT");
-    printf("        %s YawCorrection\n", desc.SensorCaps & ovrSensorCap_YawCorrection ? "SUPPORTS" : "DOES NOT SUPPORT");
-    printf("        %s Position\n", desc.SensorCaps & ovrSensorCap_Position ? "SUPPORTS" : "DOES NOT SUPPORT");
+    printf("    TrackingCaps = 0x%x\n", desc.TrackingCaps);
+    printf("        %s Orientation\n", desc.TrackingCaps & ovrTrackingCap_Orientation ? "SUPPORTS" : "DOES NOT SUPPORT");
+    printf("        %s MagYawCorrection\n", desc.TrackingCaps & ovrTrackingCap_MagYawCorrection ? "SUPPORTS" : "DOES NOT SUPPORT");
+    printf("        %s Position\n", desc.TrackingCaps & ovrTrackingCap_Position ? "SUPPORTS" : "DOES NOT SUPPORT");
     printf("    DistortionCaps = 0x%x\n", desc.DistortionCaps);
     printf("        %s Chromatic\n", desc.DistortionCaps & ovrDistortionCap_Chromatic ? "SUPPORTS" : "DOES NOT SUPPORT");
     printf("        %s TimeWarp\n", desc.DistortionCaps & ovrDistortionCap_TimeWarp ? "SUPPORTS" : "DOES NOT SUPPORT");
@@ -95,18 +95,19 @@ void RiftSetup()
 {
     ovr_Initialize();
 
-    s_hmd = ovrHmd_Create(0);
+    ovrHmd s_hmd = ovrHmd_Create(0);
+
     if (!s_hmd)
     {
-        s_hmd = ovrHmd_CreateDebug(ovrHmd_DK1);
+        s_hmd = ovrHmd_CreateDebug(ovrHmd_DK2);
     }
 
-    ovrHmd_GetDesc(s_hmd, &s_hmdDesc);
-    DumpHMDInfo(s_hmdDesc);
+    //ovrHmd_GetDesc(s_hmd, &s_hmdDesc);
+    DumpHMDInfo(*s_hmd);
 
-    uint32_t supportedSensorCaps = ovrSensorCap_Orientation;
-    uint32_t requiredSensorCaps = ovrSensorCap_Orientation;
-    ovrBool success = ovrHmd_StartSensor(s_hmd, supportedSensorCaps, requiredSensorCaps);
+    uint32_t supportedTrackingCaps = ovrTrackingCap_Orientation;
+    uint32_t requiredTrackingCaps = ovrTrackingCap_Orientation;
+    ovrBool success = ovrHmd_ConfigureTracking(s_hmd, supportedTrackingCaps, requiredTrackingCaps);
     if (!success) {
         fprintf(stderr, "ERROR: HMD does not have required capabilities!\n");
         exit(2);
@@ -193,19 +194,20 @@ void Render(float dt)
     glViewport(0, 0, s_renderTargetSize.w, s_renderTargetSize.h);
     glClearColor(s_clearColor.x, s_clearColor.y, s_clearColor.z, s_clearColor.w);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    ovrPosef pose[2];
 
     for (int i = 0; i < 2; i++)
     {
         ovrEyeType eye = s_hmdDesc.EyeRenderOrder[i];
-        ovrPosef pose = ovrHmd_BeginEyeRender(s_hmd, eye);
+        pose[eye] = ovrHmd_GetEyePose(s_hmd, eye);
 
         glViewport(s_eyeTexture[eye].Header.RenderViewport.Pos.x,
                    s_eyeTexture[eye].Header.RenderViewport.Pos.y,
                    s_eyeTexture[eye].Header.RenderViewport.Size.w,
                    s_eyeTexture[eye].Header.RenderViewport.Size.h);
 
-        Quatf q(pose.Orientation.x, pose.Orientation.y, pose.Orientation.z, pose.Orientation.w);
-        Vector3f p(pose.Position.x, pose.Position.y, pose.Position.z);
+        Quatf q(pose[eye].Orientation.x, pose[eye].Orientation.y, pose[eye].Orientation.z, pose[eye].Orientation.w);
+        Vector3f p(pose[eye].Position.x, pose[eye].Position.y, pose[eye].Position.z);
 
         Matrixf cameraMatrix = Matrixf::QuatTrans(q, s_cameraPos);
         Matrixf viewCenter = cameraMatrix.OrthoInverse();
@@ -246,10 +248,10 @@ void Render(float dt)
         RenderTextEnd();
 
         RenderEnd();
-        ovrHmd_EndEyeRender(s_hmd, eye, pose, &s_eyeTexture[eye]);
+        //ovrHmd_EndEyeRender(s_hmd, eye, pose, &s_eyeTexture[eye]);
     }
 
-    ovrHmd_EndFrame(s_hmd);
+    ovrHmd_EndFrame(s_hmd, pose, s_eyeTexture);
 }
 
 void CreateRenderTarget(int width, int height)
