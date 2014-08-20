@@ -48,10 +48,10 @@ Vector4f s_clearColor(0.0, 0, 0.3, 1);
 
 // time tracking
 unsigned int s_ticks = 0;
+unsigned int s_frames = 0;
 static Matrixf s_RotY90 = Matrixf::AxisAngle(Vector3f(0,1,0), PI/2.0f);
 
 ovrHmd s_hmd;
-ovrHmdDesc s_hmdDesc;
 ovrEyeRenderDesc s_eyeRenderDesc[2];
 ovrSizei s_renderTargetSize;
 ovrTexture s_eyeTexture[2];
@@ -62,36 +62,69 @@ uint32_t s_fboTex;
 
 Vector3f s_cameraPos(0, 6 * kFeetToMeters, 0);
 
-void DumpHMDInfo(const ovrHmdDesc& desc)
+void DumpHMDInfo(ovrHmd hmd)
 {
     printf("HMDInfo\n");
-    printf("    ProductName = \"%s\"\n", desc.ProductName);
-    printf("    Manufacturer = \"%s\"\n", desc.Manufacturer);
-    printf("    HmdCaps = 0x%x\n", desc.HmdCaps);
-    printf("        %s Present\n", desc.HmdCaps & ovrHmdCap_Present ? "IS" : "IS NOT");
-    printf("        %s Available\n", desc.HmdCaps & ovrHmdCap_Available ? "IS" : "IS NOT");
-    printf("    SensorCaps = 0x%x\n", desc.SensorCaps);
-    printf("        %s Orientation\n", desc.SensorCaps & ovrSensorCap_Orientation ? "SUPPORTS" : "DOES NOT SUPPORT");
-    printf("        %s YawCorrection\n", desc.SensorCaps & ovrSensorCap_YawCorrection ? "SUPPORTS" : "DOES NOT SUPPORT");
-    printf("        %s Position\n", desc.SensorCaps & ovrSensorCap_Position ? "SUPPORTS" : "DOES NOT SUPPORT");
-    printf("    DistortionCaps = 0x%x\n", desc.DistortionCaps);
-    printf("        %s Chromatic\n", desc.DistortionCaps & ovrDistortionCap_Chromatic ? "SUPPORTS" : "DOES NOT SUPPORT");
-    printf("        %s TimeWarp\n", desc.DistortionCaps & ovrDistortionCap_TimeWarp ? "SUPPORTS" : "DOES NOT SUPPORT");
-    printf("        %s Vignette\n", desc.DistortionCaps & ovrDistortionCap_Vignette ? "SUPPORTS" : "DOES NOT SUPPORT");
-    printf("    Resolution = %d x %d\n", desc.Resolution.w, desc.Resolution.h);
-    printf("    WindowsPos = (%d, %d)\n", desc.WindowsPos.x, desc.WindowsPos.y);
+    printf("    ProductName = \"%s\"\n", hmd->ProductName);
+    printf("    Manufacturer = \"%s\"\n", hmd->Manufacturer);
+    printf("    VendorId = %d\n", hmd->VendorId);
+    printf("    ProductId = %d\n", hmd->VendorId);
+    printf("    SerialNumber = ");
+    for (int i = 0; i < 24; i++)
+    {
+        printf("%c", hmd->SerialNumber[i]);
+    }
+    printf("\n");
+    printf("    FirmwareVersion = %d.%d\n", hmd->FirmwareMajor, hmd->FirmwareMinor);
+    printf("    CamraFrustum\n");
+    printf("        HFov = %0.2f\xC2\xB0\n", RadToDeg(hmd->CameraFrustumHFovInRadians));
+    printf("        VFov = %0.2f\xC2\xB0\n", RadToDeg(hmd->CameraFrustumVFovInRadians));
+    printf("        NearZ = %0.2fm\n", hmd->CameraFrustumNearZInMeters);
+    printf("        FarZ = %0.2fm\n", hmd->CameraFrustumFarZInMeters);
+
+    printf("    HmdCaps = 0x%x\n", hmd->HmdCaps);
+    printf("        Present = %s\n", hmd->HmdCaps & ovrHmdCap_Present ? "TRUE" : "FALSE");
+    printf("        Available = %s\n", hmd->HmdCaps & ovrHmdCap_Available ? "TRUE" : "FALSE");
+    printf("        Captured = %s\n", hmd->HmdCaps & ovrHmdCap_Captured ? "TRUE" : "FALSE");
+    printf("        ExtendDesktop = %s\n", hmd->HmdCaps & ovrHmdCap_ExtendDesktop ? "TRUE" : "FALSE");
+    printf("        NoMirrorToWindow = %s\n", hmd->HmdCaps & ovrHmdCap_NoMirrorToWindow ? "TRUE" : "FALSE");
+    printf("        DisplayOff = %s\n", hmd->HmdCaps & ovrHmdCap_DisplayOff ? "TRUE" : "FALSE");
+    printf("        LowPersistence = %s\n", hmd->HmdCaps & ovrHmdCap_LowPersistence ? "TRUE" : "FALSE");
+    printf("        DynamicPrediction = %s\n", hmd->HmdCaps & ovrHmdCap_DynamicPrediction ? "TRUE" : "FALSE");
+    printf("        DynamicNoVSync = %s\n", hmd->HmdCaps & ovrHmdCap_NoVSync ? "TRUE" : "FALSE");
+
+    printf("    TrackingCaps = 0x%x\n", hmd->TrackingCaps);
+    printf("        Orientation = %s\n", hmd->TrackingCaps & ovrTrackingCap_Orientation ? "TRUE" : "FALSE");
+    printf("        MagbYawCorrection = %s\n", hmd->TrackingCaps & ovrTrackingCap_MagYawCorrection ? "TRUE" : "FALSE");
+    printf("        Position = %s\n", hmd->TrackingCaps & ovrTrackingCap_Position ? "TRUE" : "FALSE");
+
+    printf("    DistortionCaps = 0x%x\n", hmd->DistortionCaps);
+    printf("        Chromatic = %s\n", hmd->DistortionCaps & ovrDistortionCap_Chromatic ? "TRUE" : "FALSE");
+    printf("        TimeWarp = %s\n", hmd->DistortionCaps & ovrDistortionCap_TimeWarp ? "TRUE" : "FALSE");
+    printf("        Vignette = %s\n", hmd->DistortionCaps & ovrDistortionCap_Vignette ? "TRUE" : "FALSE");
+    printf("        NoRestore = %s\n", hmd->DistortionCaps & ovrDistortionCap_NoRestore ? "TRUE" : "FALSE");
+    printf("        FlipInput = %s\n", hmd->DistortionCaps & ovrDistortionCap_FlipInput ? "TRUE" : "FALSE");
+    printf("        SRGB = %s\n", hmd->DistortionCaps & ovrDistortionCap_SRGB ? "TRUE" : "FALSE");
+    printf("        Overdrive = %s\n", hmd->DistortionCaps & ovrDistortionCap_Overdrive ? "TRUE" : "FALSE");
+
     printf("    DefaultEyeFov = [(%f, %f, %f, %f), (%f, %f, %f, %f])]\n",
-           desc.DefaultEyeFov[0].UpTan, desc.DefaultEyeFov[0].DownTan, desc.DefaultEyeFov[0].LeftTan, desc.DefaultEyeFov[0].RightTan,
-           desc.DefaultEyeFov[1].UpTan, desc.DefaultEyeFov[1].DownTan, desc.DefaultEyeFov[1].LeftTan, desc.DefaultEyeFov[1].RightTan);
+           hmd->DefaultEyeFov[0].UpTan, hmd->DefaultEyeFov[0].DownTan, hmd->DefaultEyeFov[0].LeftTan, hmd->DefaultEyeFov[0].RightTan,
+           hmd->DefaultEyeFov[1].UpTan, hmd->DefaultEyeFov[1].DownTan, hmd->DefaultEyeFov[1].LeftTan, hmd->DefaultEyeFov[1].RightTan);
     printf("    MaxEyeFov = [(%f, %f, %f, %f), (%f, %f, %f, %f])]\n",
-           desc.MaxEyeFov[0].UpTan, desc.MaxEyeFov[0].DownTan, desc.MaxEyeFov[0].LeftTan, desc.MaxEyeFov[0].RightTan,
-           desc.MaxEyeFov[1].UpTan, desc.MaxEyeFov[1].DownTan, desc.MaxEyeFov[1].LeftTan, desc.MaxEyeFov[1].RightTan);
-    printf("    EyeRenderOrder = %s, %s\n", desc.EyeRenderOrder[0] == ovrEye_Left ? "Left" : "Right", desc.EyeRenderOrder[1] == ovrEye_Left ? "Left" : "Right");
+           hmd->MaxEyeFov[0].UpTan, hmd->MaxEyeFov[0].DownTan, hmd->MaxEyeFov[0].LeftTan, hmd->MaxEyeFov[0].RightTan,
+           hmd->MaxEyeFov[1].UpTan, hmd->MaxEyeFov[1].DownTan, hmd->MaxEyeFov[1].LeftTan, hmd->MaxEyeFov[1].RightTan);
+    printf("    EyeRenderOrder = %s, %s\n", hmd->EyeRenderOrder[0] == ovrEye_Left ? "Left" : "Right", hmd->EyeRenderOrder[1] == ovrEye_Left ? "Left" : "Right");
+
+    printf("    Resolution = %d x %d\n", hmd->Resolution.w, hmd->Resolution.h);
+    printf("    WindowsPos = (%d, %d)\n", hmd->WindowsPos.x, hmd->WindowsPos.y);
+
+    printf("    DisplayDeviceName = %s\n", hmd->DisplayDeviceName);
+    printf("    DisplayId = %d\n", hmd->DisplayId);
 }
 
 void CreateRenderTarget(int width, int height);
 
-void RiftSetup()
+void RiftInit()
 {
     ovr_Initialize();
 
@@ -101,20 +134,23 @@ void RiftSetup()
         s_hmd = ovrHmd_CreateDebug(ovrHmd_DK1);
     }
 
-    ovrHmd_GetDesc(s_hmd, &s_hmdDesc);
-    DumpHMDInfo(s_hmdDesc);
+    DumpHMDInfo(s_hmd);
+}
 
-    uint32_t supportedSensorCaps = ovrSensorCap_Orientation;
-    uint32_t requiredSensorCaps = ovrSensorCap_Orientation;
-    ovrBool success = ovrHmd_StartSensor(s_hmd, supportedSensorCaps, requiredSensorCaps);
+void RiftConfigure()
+{
+    uint32_t supportedSensorCaps = ovrTrackingCap_Orientation;
+    uint32_t requiredTrackingCaps = ovrTrackingCap_Orientation;
+
+    ovrBool success = ovrHmd_ConfigureTracking(s_hmd, supportedSensorCaps, requiredTrackingCaps);
     if (!success) {
         fprintf(stderr, "ERROR: HMD does not have required capabilities!\n");
         exit(2);
     }
 
     // Figure out dimensions of render target
-    ovrSizei recommenedTex0Size = ovrHmd_GetFovTextureSize(s_hmd, ovrEye_Left, s_hmdDesc.DefaultEyeFov[0], 1.0f);
-    ovrSizei recommenedTex1Size = ovrHmd_GetFovTextureSize(s_hmd, ovrEye_Right, s_hmdDesc.DefaultEyeFov[1], 1.0f);
+    ovrSizei recommenedTex0Size = ovrHmd_GetFovTextureSize(s_hmd, ovrEye_Left, s_hmd->DefaultEyeFov[0], 1.0f);
+    ovrSizei recommenedTex1Size = ovrHmd_GetFovTextureSize(s_hmd, ovrEye_Right, s_hmd->DefaultEyeFov[1], 1.0f);
     s_renderTargetSize.w = recommenedTex0Size.w + recommenedTex1Size.w;
     s_renderTargetSize.h = std::max(recommenedTex0Size.h, recommenedTex1Size.h);
 
@@ -139,11 +175,13 @@ void RiftSetup()
     cfg.OGL.Header.RTSize = {s_config->width, s_config->height};
     cfg.OGL.Header.Multisample = 0;
     // TODO: on windows need to set HWND, on Linux need to set other parameters
-    if (!ovrHmd_ConfigureRendering(s_hmd, &cfg.Config, s_hmdDesc.DistortionCaps, s_hmdDesc.DefaultEyeFov, s_eyeRenderDesc))
+    if (!ovrHmd_ConfigureRendering(s_hmd, &cfg.Config, s_hmd->DistortionCaps, s_hmd->DefaultEyeFov, s_eyeRenderDesc))
     {
         fprintf(stderr, "ERROR: HMD configure rendering failed!\n");
         exit(3);
     }
+
+    ovrHmd_DismissHSWDisplay(s_hmd);
 }
 
 void RiftShutdown()
@@ -194,10 +232,13 @@ void Render(float dt)
     glClearColor(s_clearColor.x, s_clearColor.y, s_clearColor.z, s_clearColor.w);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+    ovrPosef headPose[2];
+
     for (int i = 0; i < 2; i++)
     {
-        ovrEyeType eye = s_hmdDesc.EyeRenderOrder[i];
-        ovrPosef pose = ovrHmd_BeginEyeRender(s_hmd, eye);
+        ovrEyeType eye = s_hmd->EyeRenderOrder[i];
+        ovrPosef pose = ovrHmd_GetEyePose(s_hmd, eye);
+        headPose[eye] = pose;
 
         glViewport(s_eyeTexture[eye].Header.RenderViewport.Pos.x,
                    s_eyeTexture[eye].Header.RenderViewport.Pos.y,
@@ -246,10 +287,9 @@ void Render(float dt)
         RenderTextEnd();
 
         RenderEnd();
-        ovrHmd_EndEyeRender(s_hmd, eye, pose, &s_eyeTexture[eye]);
     }
 
-    ovrHmd_EndFrame(s_hmd);
+    ovrHmd_EndFrame(s_hmd, headPose, s_eyeTexture);
 }
 
 void CreateRenderTarget(int width, int height)
@@ -331,8 +371,10 @@ int main(int argc, char* argv[])
         exit(1);
     }
 
+    RiftInit();
+
     bool fullscreen = true;
-    s_config = new AppConfig(fullscreen, false, 1280, 800);
+    s_config = new AppConfig(fullscreen, false, s_hmd->Resolution.w, s_hmd->Resolution.h);
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK);
     SDL_Window* displayWindow;
     SDL_Renderer* displayRenderer;
@@ -369,7 +411,7 @@ int main(int argc, char* argv[])
     SDL_GL_SwapWindow(displayWindow);
     */
 
-    RiftSetup();
+    RiftConfigure();
 
     RenderInit();
 
@@ -479,6 +521,8 @@ int main(int argc, char* argv[])
 
             Process(dt);
             Render(dt);
+
+            s_frames++;
         }
     }
 
