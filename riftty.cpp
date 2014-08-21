@@ -139,10 +139,10 @@ void RiftInit()
 
 void RiftConfigure()
 {
-    uint32_t supportedSensorCaps = ovrTrackingCap_Orientation;
-    uint32_t requiredTrackingCaps = ovrTrackingCap_Orientation;
+    uint32_t supportedSensorCaps = ovrTrackingCap_Orientation | ovrTrackingCap_MagYawCorrection | ovrTrackingCap_Position;
+    uint32_t requiredTrackingCaps = 0;
 
-    ovrBool success = ovrHmd_ConfigureTracking(s_hmd, supportedSensorCaps, requiredTrackingCaps);
+    ovrBool success = ovrHmd_ConfigureTracking(s_hmd, supportedSensorCaps, 0);
     if (!success) {
         fprintf(stderr, "ERROR: HMD does not have required capabilities!\n");
         exit(2);
@@ -172,10 +172,10 @@ void RiftConfigure()
     ovrGLConfig cfg;
     memset(&cfg, 0, sizeof(ovrGLConfig));
     cfg.OGL.Header.API = ovrRenderAPI_OpenGL;
-    cfg.OGL.Header.RTSize = {s_config->width, s_config->height};
+    cfg.OGL.Header.RTSize = {s_hmd->Resolution.w, s_hmd->Resolution.h};
     cfg.OGL.Header.Multisample = 0;
     // TODO: on windows need to set HWND, on Linux need to set other parameters
-    if (!ovrHmd_ConfigureRendering(s_hmd, &cfg.Config, s_hmd->DistortionCaps, s_hmd->DefaultEyeFov, s_eyeRenderDesc))
+    if (!ovrHmd_ConfigureRendering(s_hmd, &cfg.Config, s_hmd->DistortionCaps & ~ovrDistortionCap_FlipInput, s_hmd->DefaultEyeFov, s_eyeRenderDesc))
     {
         fprintf(stderr, "ERROR: HMD configure rendering failed!\n");
         exit(3);
@@ -232,6 +232,14 @@ void Render(float dt)
     glClearColor(s_clearColor.x, s_clearColor.y, s_clearColor.z, s_clearColor.w);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+    ovrTrackingState ts = ovrHmd_GetTrackingState(s_hmd, ovr_GetTimeInSeconds());
+
+    Vector3f posTrackOffset(0.0f, 0.0f, 0.0f);
+    if (ts.StatusFlags & (ovrStatus_PositionTracked)) {
+        ovrPosef pose = ts.HeadPose.ThePose;
+        posTrackOffset.Set(pose.Position.x, pose.Position.y, pose.Position.z);
+    }
+
     ovrPosef headPose[2];
 
     for (int i = 0; i < 2; i++)
@@ -248,7 +256,7 @@ void Render(float dt)
         Quatf q(pose.Orientation.x, pose.Orientation.y, pose.Orientation.z, pose.Orientation.w);
         Vector3f p(pose.Position.x, pose.Position.y, pose.Position.z);
 
-        Matrixf cameraMatrix = Matrixf::QuatTrans(q, s_cameraPos);
+        Matrixf cameraMatrix = Matrixf::QuatTrans(q, s_cameraPos + posTrackOffset);
         Matrixf viewCenter = cameraMatrix.OrthoInverse();
 
         // let ovr compute projection matrix, cause it's hard.
@@ -379,7 +387,7 @@ int main(int argc, char* argv[])
     SDL_Window* displayWindow;
     SDL_Renderer* displayRenderer;
 
-    uint32_t flags = SDL_WINDOW_OPENGL | (s_config->fullscreen ? SDL_WINDOW_FULLSCREEN_DESKTOP : 0);
+    uint32_t flags = SDL_WINDOW_OPENGL | (s_config->fullscreen ? SDL_WINDOW_FULLSCREEN : 0);
 	int err = SDL_CreateWindowAndRenderer(s_config->width, s_config->height, flags, &displayWindow, &displayRenderer);
 	if (err == -1 || !displayWindow || !displayRenderer) {
 		fprintf(stderr, "SDL_CreateWindowAndRenderer failed!\n");
