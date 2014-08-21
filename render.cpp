@@ -167,7 +167,7 @@ void RenderText(const std::vector<gb::Quad>& quadVec)
     {
         const WIN_TextUserData* data = (const WIN_TextUserData*)quad.userData;
         Vector4f bg_color = UintColorToVector4(data->bg_color);
-        bg_color.w = 0.5;
+        bg_color.w = 0.75f;
         s_fullbrightShader->setColor(bg_color);
 
         uint32_t y_offset = data->line_height / 3; // hack
