@@ -60,7 +60,26 @@ uint32_t s_fbo;
 uint32_t s_fboDepth;
 uint32_t s_fboTex;
 
+// TODO: get height from ovr SDK
 Vector3f s_cameraPos(0, 6 * kFeetToMeters, 0);
+
+void TermConfigInit()
+{
+    init_config();
+
+    // load config from ~/.riftty
+    struct passwd *pw = getpwuid(getuid());
+    const char *homedir = pw->pw_dir;
+    char config_filename[512];
+    strncpy(config_filename, homedir, 512);
+    strncat(config_filename, "/.riftty", 512);
+    load_config(config_filename);
+
+    cs_init();
+
+    finish_config();
+    win_reconfig();
+}
 
 void DumpHMDInfo(ovrHmd hmd)
 {
@@ -135,6 +154,39 @@ void RiftInit()
     }
 
     DumpHMDInfo(s_hmd);
+}
+
+void TermInit()
+{
+    win_init();
+
+    // TODO: get SHELL from env
+
+    cs_reconfig(); // TODO: do not want
+
+    term_init();
+    term_reset();
+    term_resize(cfg.rows, cfg.cols);
+
+    // TODO:
+    int font_width = 10;
+    int font_height = 10;
+    unsigned short term_width = font_width * cfg.cols;
+    unsigned short term_height = font_height * cfg.rows;
+
+    char login[128];
+    strncpy(login, getlogin(), 128);
+    const char* login_argv[] = {"login", "-pfl", login, NULL};
+    unsigned short rows = cfg.rows;
+    unsigned short cols = cfg.cols;
+    winsize ws = {rows, cols, term_width, term_height};
+    child_create(login_argv, &ws);
+}
+
+void TermShutdown()
+{
+    child_kill(true);
+    win_shutdown();
 }
 
 void RiftConfigure()
@@ -274,8 +326,8 @@ void Render(float dt)
                                                                   s_eyeRenderDesc[eye].ViewAdjust.z));
 
         // compute model matrix for terminal
-        const float kTermScale = 0.001f;
-        const Vector3f termOrigin(-2 * kFeetToMeters, 6.75f * kFeetToMeters, -2.5 * kFeetToMeters);
+        const float kTermScale = 0.0008f;
+        const Vector3f termOrigin(-2.6f * kFeetToMeters, 6.75f * kFeetToMeters, -2.5 * kFeetToMeters);
         Matrixf modelMatrix = Matrixf::ScaleQuatTrans(Vector3f(kTermScale, -kTermScale, kTermScale),
                                                       Quatf::AxisAngle(Vector3f(0, 1, 0), 0),
                                                       termOrigin);
@@ -379,9 +431,10 @@ int main(int argc, char* argv[])
         exit(1);
     }
 
+    TermConfigInit();
     RiftInit();
 
-    bool fullscreen = true;
+    bool fullscreen = false;
     s_config = new AppConfig(fullscreen, false, s_hmd->Resolution.w, s_hmd->Resolution.h);
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK);
     SDL_Window* displayWindow;
@@ -409,62 +462,9 @@ int main(int argc, char* argv[])
     AppConfig& config = *s_config;
     config.title = "riftty";
 
-    //SDL_WM_SetCaption(config.title.c_str(), config.title.c_str());
-    //SDL_EnableKeyRepeat(SDL_DEFAULT_REPEAT_DELAY, SDL_DEFAULT_REPEAT_INTERVAL);
-
-    /*
-    // clear
-    glClearColor(s_clearColor.x, s_clearColor.y, s_clearColor.z, s_clearColor.w);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-    SDL_GL_SwapWindow(displayWindow);
-    */
-
     RiftConfigure();
-
     RenderInit();
-
-    win_init();
-
-    init_config();
-
-    struct passwd *pw = getpwuid(getuid());
-    const char *homedir = pw->pw_dir;
-    char config_filename[512];
-    strncpy(config_filename, homedir, 512);
-    strncat(config_filename, "/.riftty", 512);
-    load_config(config_filename);
-
-    cs_init();  // TODO: code pages do not want
-
-    // TODO: determine this based on window-size & font-size or vice versa.
-    cfg.rows = 25;
-    cfg.cols = 80;
-
-    // TODO: load config from /etc/riffty or ~/.rifttyrc
-    finish_config();
-    win_reconfig();
-
-    // TODO: get SHELL from env
-
-    cs_reconfig(); // TODO: do not want
-
-    term_init();
-    term_reset();
-    term_resize(cfg.rows, cfg.cols);
-
-    // TODO:
-    int font_width = 10;
-    int font_height = 10;
-    unsigned short term_width = font_width * cfg.cols;
-    unsigned short term_height = font_height * cfg.rows;
-
-    char login[128];
-    strncpy(login, getlogin(), 128);
-    const char* login_argv[] = {"login", "-pfl", login, NULL};
-    unsigned short rows = cfg.rows;
-    unsigned short cols = cfg.cols;
-    winsize ws = {rows, cols, term_width, term_height};
-    child_create(login_argv, &ws);
+    TermInit();
 
     bool done = false;
     while (!done)
@@ -534,9 +534,7 @@ int main(int argc, char* argv[])
         }
     }
 
-    child_kill(true);
-    win_shutdown();
-
+    TermShutdown();
     RiftShutdown();
     JOYSTICK_Shutdown();
 
