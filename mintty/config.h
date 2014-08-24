@@ -28,6 +28,13 @@ static inline uchar red(colour c) { return c; }
 static inline uchar green(colour c) { return c >> 8; }
 static inline uchar blue(colour c) { return c >> 16; }
 
+typedef struct {
+  float x, y, z;
+} vector_3;
+
+typedef struct {
+  float x, y;
+} vector_2;
 
 // Font properties.
 
@@ -73,6 +80,10 @@ typedef struct {
   bool clicks_target_app;
   char click_target_mod;
   // Window
+  vector_3 win_pos, win_rot;
+  vector_2 win_anchor;
+  float win_width;
+  bool win_fullscreen;
   int cols, rows;
   int scrollback_lines;
   char scrollbar;

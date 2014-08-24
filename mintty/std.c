@@ -7,8 +7,13 @@
 void
 strset(mintty_string *sp, mintty_string s)
 {
-  uint size = strlen(s) + 1;
-  *sp = memcpy(mintty_renewn((char *)*sp, size), s, size);
+  if (*sp) {
+    uint size = strlen(s) + 1;
+    *sp = memcpy(mintty_renewn((char *)*sp, size), s, size);
+  } else {
+    *sp = malloc(1);
+    *((char *)*sp) = '\0';
+  }
 }
 
 #if 0 //CYGWIN_VERSION_API_MINOR < 70

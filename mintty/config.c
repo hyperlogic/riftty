@@ -29,13 +29,13 @@ const config default_cfg = {
   .cursor_type = CUR_LINE,
   .cursor_blinks = true,
   // Text
-  .font = {.name = "Lucida Console", .isbold = false, .size = 9},
+  .font = {.name = NULL, .isbold = false, .size = 9},
   .font_smoothing = FS_DEFAULT,
   .bold_as_font = -1,  // -1 means "the opposite of bold_as_colour"
   .bold_as_colour = true,
   .allow_blinking = false,
-  .locale = "",
-  .charset = "",
+  .locale = NULL,
+  .charset = NULL,
   // Keys
   .backspace_sends_bs = CERASE == '\b',
   .ctrl_alt_is_altgr = false,
@@ -54,6 +54,11 @@ const config default_cfg = {
   .clicks_target_app = true,
   .click_target_mod = MDK_SHIFT,
   // Window
+  .win_pos = {0.0f, 1.0f, -1.0f},
+  .win_rot = {0.0f, 0.0f, 0.0f},
+  .win_anchor = {0.5f, 0.5f},
+  .win_width = 2.0f,
+  .win_fullscreen = true,
   .cols = 80,
   .rows = 24,
   .scrollbar = 1,
@@ -61,24 +66,24 @@ const config default_cfg = {
   .scroll_mod = MDK_SHIFT,
   .pgupdn_scroll = false,
   // Terminal
-  .term = "xterm",
-  .answerback = "",
+  .term = NULL,
+  .answerback = NULL,
   .bell_sound = false,
   .bell_flash = false,
   .bell_taskbar = true,
-  .printer = "",
+  .printer = NULL,
   .confirm_exit = true,
   // Command line
-  .klass = "",
+  .klass = NULL,
   .hold = HOLD_START,
-  .icon = "",
-  .log = "",
+  .icon = NULL,
+  .log = NULL,
   .utmp = false,
-  .title = "",
+  .title = NULL,
   // "Hidden"
   .col_spacing = 0,
   .row_spacing = 0,
-  .word_chars = "",
+  .word_chars = NULL,
   .use_system_colours = false,
   .ime_cursor_colour = DEFAULT_COLOUR,
   .ansi_colours = {
@@ -104,7 +109,7 @@ const config default_cfg = {
 typedef enum {
   OPT_BOOL, OPT_MOD, OPT_TRANS, OPT_CURSOR, OPT_FONTSMOOTH,
   OPT_RIGHTCLICK, OPT_SCROLLBAR, OPT_WINDOW, OPT_HOLD,
-  OPT_INT, OPT_COLOUR, OPT_STRING,
+  OPT_INT, OPT_COLOUR, OPT_STRING, OPT_FLOAT,
   OPT_LEGACY = 16
 } opt_type;
 
@@ -120,7 +125,7 @@ static mintty_string rc_filename = 0;
 static const struct {
   mintty_string name;
   uchar type;
-  uchar offset;
+  uint offset;
 }
 
 options[] = {
@@ -164,6 +169,17 @@ options[] = {
   {"ClickTargetMod", OPT_MOD, offcfg(click_target_mod)},
 
   // Window
+  {"WinPosX", OPT_FLOAT, offcfg(win_pos.x)},
+  {"WinPosY", OPT_FLOAT, offcfg(win_pos.y)},
+  {"WinPosZ", OPT_FLOAT, offcfg(win_pos.z)},
+  {"WinRotX", OPT_FLOAT, offcfg(win_rot.x)},
+  {"WinRotY", OPT_FLOAT, offcfg(win_rot.y)},
+  {"WinRotZ", OPT_FLOAT, offcfg(win_rot.z)},
+  {"WinAnchorX", OPT_FLOAT, offcfg(win_anchor.x)},
+  {"WinAnchorY", OPT_FLOAT, offcfg(win_anchor.y)},
+  {"WinWidth", OPT_FLOAT, offcfg(win_width)},
+  {"WinFullscreen", OPT_BOOL, offcfg(win_fullscreen)},
+
   {"Columns", OPT_INT, offcfg(cols)},
   {"Rows", OPT_INT, offcfg(rows)},
   {"ScrollbackLines", OPT_INT, offcfg(scrollback_lines)},
@@ -196,7 +212,7 @@ options[] = {
   {"RowSpacing", OPT_INT, offcfg(row_spacing)},
   {"WordChars", OPT_STRING, offcfg(word_chars)},
   {"IMECursorColour", OPT_COLOUR, offcfg(ime_cursor_colour)},
-  
+
   // ANSI colours
   {"Black", OPT_COLOUR, offcfg(ansi_colours[BLACK_I])},
   {"Red", OPT_COLOUR, offcfg(ansi_colours[RED_I])},
@@ -366,7 +382,7 @@ parse_colour(mintty_string s, colour *cp)
   else if (sscanf(s, "rgb:%4x/%4x/%4x%c", &r, &g, &b, &(char){0}) == 3)
     r >>=8, g >>= 8, b >>= 8;
   else
-    return false;  
+    return false;
 
   *cp = make_colour(r, g, b);
   return true;
@@ -378,10 +394,10 @@ set_option(mintty_string name, mintty_string val_str)
   int i = find_option(name);
   if (i < 0)
     return i;
-  
+
   void *val_p = (void *)&cfg + options[i].offset;
   uint type = options[i].type & ~OPT_LEGACY;
-  
+
   switch (type) {
     WHEN OPT_STRING:
       strset(val_p, val_str);
@@ -391,6 +407,14 @@ set_option(mintty_string name, mintty_string val_str)
       int val = strtol(val_str, &val_end, 0);
       if (val_end != val_str) {
         *(int *)val_p = val;
+        return i;
+      }
+    }
+    WHEN OPT_FLOAT: {
+      char *val_end;
+      double val = strtod(val_str, &val_end);
+      if (val_end != val_str) {
+        *(float *)val_p = (float)val;
         return i;
       }
     }
@@ -430,20 +454,20 @@ parse_option(mintty_string option)
     fprintf(stderr, "Ignoring malformed option '%s'.\n", option);
     return -1;
   }
-  
+
   const char *name_end = eq;
   while (isspace((uchar)name_end[-1]))
     name_end--;
-  
+
   uint name_len = name_end - option;
   char name[name_len + 1];
   memcpy(name, option, name_len);
   name[name_len] = 0;
-  
+
   const char *val = eq + 1;
   while (isspace((uchar)*val))
     val++;
-  
+
   return set_option(name, val);
 }
 
@@ -491,9 +515,9 @@ load_config(mintty_string filename)
     }
     fclose(file);
   }
-  
+
   check_legacy_options(remember_file_option);
-  
+
   copy_config(&file_cfg, &cfg);
 }
 
@@ -510,13 +534,11 @@ copy_config(config *dst_p, const config *src_p)
       void *src_val_p = (void *)src_p + offset;
       switch (type) {
         WHEN OPT_STRING:
-          //strset(dst_val_p, *(mintty_string *)src_val_p);
-          // TODO: leak, but this is better then the previous undefined behavior.
-          temp = (char*)malloc(strlen(*(mintty_string *)src_val_p) + 1);
-          strcpy(temp, *(mintty_string *)src_val_p);
-          *(mintty_string *)dst_val_p = temp;
+          strset(dst_val_p, *(mintty_string *)src_val_p);
         WHEN OPT_INT OR OPT_COLOUR:
           *(int *)dst_val_p = *(int *)src_val_p;
+        WHEN OPT_FLOAT:
+          *(float *)dst_val_p = *(float *)src_val_p;
         OTHERWISE:
           *(char *)dst_val_p = *(char *)src_val_p;
       }
@@ -528,6 +550,8 @@ void
 init_config(void)
 {
   copy_config(&cfg, &default_cfg);
+  strset(&cfg.term, "xterm");
+  strset(&cfg.title, "riftty");
 }
 
 void
@@ -537,17 +561,17 @@ finish_config(void)
   cfg.rows = MAX(1, cfg.rows);
   cfg.cols = MAX(1, cfg.cols);
   cfg.scrollback_lines = MAX(0, cfg.scrollback_lines);
-  
+
   // Ignore charset setting if we haven't got a locale.
-  if (!*cfg.locale)
+  if (!cfg.locale || !*cfg.locale)
     strset(&cfg.charset, "");
-  
+
   // bold_as_font used to be implied by !bold_as_colour.
   if (cfg.bold_as_font == -1) {
     cfg.bold_as_font = !cfg.bold_as_colour;
     remember_file_option(find_option("BoldAsFont"));
   }
-  
+
   if (0 < cfg.transparency && cfg.transparency <= 3)
     cfg.transparency *= 16;
 }
@@ -590,6 +614,8 @@ save_config(void)
             fprintf(file, "%s", *(mintty_string *)val_p);
           WHEN OPT_INT:
             fprintf(file, "%i", *(int *)val_p);
+          WHEN OPT_FLOAT:
+            fprintf(file, "%f", *(float *)val_p);
           WHEN OPT_COLOUR: {
             colour c = *(colour *)val_p;
             fprintf(file, "%u,%u,%u", red(c), green(c), blue(c));
@@ -638,13 +664,15 @@ apply_config(void)
         changed = strcmp(*(mintty_string *)val_p, *(mintty_string *)new_val_p);
       WHEN OPT_INT OR OPT_COLOUR:
         changed = (*(int *)val_p != *(int *)new_val_p);
+      WHEN OPT_FLOAT:
+        changed = (*(float *)val_p != *(float *)new_val_p);
       OTHERWISE:
         changed = (*(char *)val_p != *(char *)new_val_p);
     }
     if (changed && !seen_arg_option(i))
       remember_file_option(i);
   }
-  
+
   win_reconfig();
   save_config();
 }
@@ -861,7 +889,7 @@ setup_config_box(controlbox * b)
   ctrl_pushbutton(
     s, "&Cursor...", dlg_stdcolour_handler, &new_cfg.cursor_colour
   )->column = 2;
-  
+
   s = ctrl_new_set(b, "Looks", "Transparency");
   bool with_glass = win_is_glass_available();
   ctrl_radiobuttons(
@@ -883,7 +911,7 @@ setup_config_box(controlbox * b)
   ctrl_radiobuttons(
     s, null, 4 + with_glass,
     dlg_stdradiobutton_handler, &new_cfg.cursor_type,
-    "Li&ne", CUR_LINE, 
+    "Li&ne", CUR_LINE,
     "Bloc&k", CUR_BLOCK,
     "&Underscore", CUR_UNDERSCORE,
     null
@@ -1000,7 +1028,7 @@ setup_config_box(controlbox * b)
     "Show &menu", RC_MENU,
     null
   );
-  
+
   s = ctrl_new_set(b, "Mouse", "Application mouse mode");
   ctrl_radiobuttons(
     s, "Default click target", 4,
@@ -1018,7 +1046,7 @@ setup_config_box(controlbox * b)
     "&Off", 0,
     null
   );
-  
+
  /*
   * The Window panel.
   */

@@ -194,7 +194,7 @@ void RiftConfigure()
     uint32_t supportedSensorCaps = ovrTrackingCap_Orientation | ovrTrackingCap_MagYawCorrection | ovrTrackingCap_Position;
     uint32_t requiredTrackingCaps = 0;
 
-    ovrBool success = ovrHmd_ConfigureTracking(s_hmd, supportedSensorCaps, 0);
+    ovrBool success = ovrHmd_ConfigureTracking(s_hmd, supportedSensorCaps, requiredTrackingCaps);
     if (!success) {
         fprintf(stderr, "ERROR: HMD does not have required capabilities!\n");
         exit(2);
@@ -221,13 +221,13 @@ void RiftConfigure()
     ((ovrGLTexture*)(&s_eyeTexture[1]))->OGL.TexId = s_fboTex;
 
     // Configure ovr SDK Rendering
-    ovrGLConfig cfg;
-    memset(&cfg, 0, sizeof(ovrGLConfig));
-    cfg.OGL.Header.API = ovrRenderAPI_OpenGL;
-    cfg.OGL.Header.RTSize = {s_hmd->Resolution.w, s_hmd->Resolution.h};
-    cfg.OGL.Header.Multisample = 0;
+    ovrGLConfig conf;
+    memset(&conf, 0, sizeof(ovrGLConfig));
+    conf.OGL.Header.API = ovrRenderAPI_OpenGL;
+    conf.OGL.Header.RTSize = {s_hmd->Resolution.w, s_hmd->Resolution.h};
+    conf.OGL.Header.Multisample = 0;
     // TODO: on windows need to set HWND, on Linux need to set other parameters
-    if (!ovrHmd_ConfigureRendering(s_hmd, &cfg.Config, s_hmd->DistortionCaps & ~ovrDistortionCap_FlipInput, s_hmd->DefaultEyeFov, s_eyeRenderDesc))
+    if (!ovrHmd_ConfigureRendering(s_hmd, &conf.Config, s_hmd->DistortionCaps & ~ovrDistortionCap_FlipInput, s_hmd->DefaultEyeFov, s_eyeRenderDesc))
     {
         fprintf(stderr, "ERROR: HMD configure rendering failed!\n");
         exit(3);
@@ -260,8 +260,6 @@ void Render(float dt)
     frameIndex++;
     ovrFrameTiming timing = ovrHmd_BeginFrame(s_hmd, 0);
 
-    // ovrSensorState ss = ovrHmd_GetSensorState(s_hmd, timing.ScanoutMidpointSeconds);
-    // TODO: Use this for head tracking...
     // TODO: Use player height from SDK
 
     glBindBuffer(GL_ARRAY_BUFFER, 0);
@@ -327,10 +325,12 @@ void Render(float dt)
 
         // compute model matrix for terminal
         const float kTermScale = 0.0008f;
-        const Vector3f termOrigin(-2.6f * kFeetToMeters, 6.75f * kFeetToMeters, -2.5 * kFeetToMeters);
-        Matrixf modelMatrix = Matrixf::ScaleQuatTrans(Vector3f(kTermScale, -kTermScale, kTermScale),
-                                                      Quatf::AxisAngle(Vector3f(0, 1, 0), 0),
-                                                      termOrigin);
+        const Vector3f termOrigin(cfg.win_pos.x, cfg.win_pos.y, cfg.win_pos.z);
+        const Quatf rot = Quatf::AxisAngle(Vector3f(1, 0, 0), DegToRad(cfg.win_rot.x)) *
+            Quatf::AxisAngle(Vector3f(0, 1, 0), DegToRad(cfg.win_rot.y)) *
+            Quatf::AxisAngle(Vector3f(0, 0, 1), DegToRad(cfg.win_rot.z));
+        const Vector3f scale(kTermScale, -kTermScale, kTermScale);
+        Matrixf modelMatrix = Matrixf::ScaleQuatTrans(scale, rot, termOrigin);
         RenderBegin();
 
         RenderFloor(projMatrix, viewMatrix, 0.0f);
@@ -434,14 +434,12 @@ int main(int argc, char* argv[])
     TermConfigInit();
     RiftInit();
 
-    bool fullscreen = false;
-    s_config = new AppConfig(fullscreen, false, s_hmd->Resolution.w, s_hmd->Resolution.h);
     SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK);
     SDL_Window* displayWindow;
     SDL_Renderer* displayRenderer;
 
-    uint32_t flags = SDL_WINDOW_OPENGL | (s_config->fullscreen ? SDL_WINDOW_FULLSCREEN : 0);
-	int err = SDL_CreateWindowAndRenderer(s_config->width, s_config->height, flags, &displayWindow, &displayRenderer);
+    uint32_t flags = SDL_WINDOW_OPENGL | (cfg.win_fullscreen ? SDL_WINDOW_FULLSCREEN : 0);
+	int err = SDL_CreateWindowAndRenderer(s_hmd->Resolution.w, s_hmd->Resolution.h, flags, &displayWindow, &displayRenderer);
 	if (err == -1 || !displayWindow || !displayRenderer) {
 		fprintf(stderr, "SDL_CreateWindowAndRenderer failed!\n");
 	}
@@ -458,9 +456,6 @@ int main(int argc, char* argv[])
     atexit(SDL_Quit);
 
     JOYSTICK_Init();
-
-    AppConfig& config = *s_config;
-    config.title = "riftty";
 
     RiftConfigure();
     RenderInit();
