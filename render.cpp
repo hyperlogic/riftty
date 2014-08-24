@@ -1,7 +1,6 @@
 #include "render.h"
 #include "shader.h"
 #include "opengl.h"
-#include "appconfig.h"
 #include "win.h"
 #include "text.h"
 

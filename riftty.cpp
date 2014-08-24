@@ -10,7 +10,6 @@
 #include <string>
 #include "keyboard.h"
 #include "opengl.h"
-#include "appconfig.h"
 #include "render.h"
 #include "joystick.h"
 

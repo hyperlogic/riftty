@@ -67,7 +67,6 @@ $OBJECTS = ['riftty.o',
             'joystick.o',
             'render.o',
             'shader.o',
-            'appconfig.o',
 
             # mintty
             'mintty/config.o',
