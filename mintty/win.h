@@ -15,6 +15,9 @@ struct WIN_TextUserData
 int win_get_text_count(void);
 void* win_get_text(int i);
 
+int win_get_max_advance(void);
+int win_get_line_height(void);
+
 void win_init(void);
 void win_shutdown(void);
 

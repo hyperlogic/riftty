@@ -137,7 +137,7 @@ void win_init(void)
 
     s_context = new WIN_Context();
 
-    s_context->font = std::make_shared<gb::Font>("font/DejaVuSansMono-Bold.ttf", 32, 4,
+    s_context->font = std::make_shared<gb::Font>(cfg.font.name, cfg.font.size, 4,
                                                  gb::FontRenderOption_Normal,
                                                  gb::FontHintOption_None);
 
@@ -326,6 +326,16 @@ void win_text(int x, int y, wchar *text, int len, uint attr, int lattr)
                                               gb::TextVerticalAlign_Top,
                                               gb::TextOptionFlags_DisableShaping);
     s_context->textVec.push_back(gb_text);
+}
+
+int win_get_max_advance(void)
+{
+    return s_context->max_advance;
+}
+
+int win_get_line_height(void)
+{
+    return s_context->line_height;
 }
 
 // original win_text code from mintty

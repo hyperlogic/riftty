@@ -322,17 +322,31 @@ void Render(float dt)
                                                                   s_eyeRenderDesc[eye].ViewAdjust.y,
                                                                   s_eyeRenderDesc[eye].ViewAdjust.z));
 
-        // compute model matrix for terminal
-        const float kTermScale = 0.0008f;
-        const Vector3f termOrigin(cfg.win_pos.x, cfg.win_pos.y, cfg.win_pos.z);
-        const Quatf rot = Quatf::AxisAngle(Vector3f(1, 0, 0), DegToRad(cfg.win_rot.x)) *
-            Quatf::AxisAngle(Vector3f(0, 1, 0), DegToRad(cfg.win_rot.y)) *
-            Quatf::AxisAngle(Vector3f(0, 0, 1), DegToRad(cfg.win_rot.z));
-        const Vector3f scale(kTermScale, -kTermScale, kTermScale);
-        Matrixf modelMatrix = Matrixf::ScaleQuatTrans(scale, rot, termOrigin);
         RenderBegin();
 
         RenderFloor(projMatrix, viewMatrix, 0.0f);
+
+        // compute model matrix for terminal
+        const Vector3f termOrigin(cfg.win_pos.x, cfg.win_pos.y, cfg.win_pos.z);
+
+        const float termWidth = win_get_max_advance() * cfg.cols;
+        const float termHeight = win_get_line_height() * cfg.rows;
+
+        const float termScale = cfg.win_width / termWidth;
+
+        const Quatf rot = (Quatf::AxisAngle(Vector3f(1, 0, 0), DegToRad(cfg.win_rot.x)) *
+                           Quatf::AxisAngle(Vector3f(0, 1, 0), DegToRad(cfg.win_rot.y)) *
+                           Quatf::AxisAngle(Vector3f(0, 0, 1), DegToRad(cfg.win_rot.z)));
+
+        const Vector3f anchorOffset = Vector3f(cfg.win_anchor.x, cfg.win_anchor.y, 0) * Vector3f(termWidth, termHeight, 0);
+
+        Matrixf anchorMatrix = Matrixf::Trans(-anchorOffset);
+        Matrixf posMat = Matrixf::Trans(termOrigin);
+        const Vector3f scale(termScale, -termScale, termScale);
+        Matrixf modelMatrix = posMat * Matrixf::ScaleQuatTrans(scale, rot, Vector3f(0,0,0)) * anchorMatrix;
+
+        //Matrixf modelMatrix = Matrixf::ScaleQuatTrans(scale, rot, termOrigin);
+
 
         RenderTextBegin(projMatrix, viewMatrix, modelMatrix);
         for (int j = 0; j < win_get_text_count(); j++)

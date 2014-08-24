@@ -141,7 +141,7 @@ options[] = {
   // Text
   {"Font", OPT_STRING, offcfg(font.name)},
   {"FontIsBold", OPT_BOOL, offcfg(font.isbold)},
-  {"FontHeight", OPT_INT, offcfg(font.size)},
+  {"FontSize", OPT_INT, offcfg(font.size)},
   {"FontSmoothing", OPT_FONTSMOOTH, offcfg(font_smoothing)},
   {"BoldAsFont", OPT_BOOL, offcfg(bold_as_font)},
   {"BoldAsColour", OPT_BOOL, offcfg(bold_as_colour)},
@@ -552,6 +552,8 @@ init_config(void)
   copy_config(&cfg, &default_cfg);
   strset(&cfg.term, "xterm");
   strset(&cfg.title, "riftty");
+  strset(&cfg.font.name, "font/DejaVuSansMono-Bold.ttf");
+  cfg.font.size = 32;
 }
 
 void
