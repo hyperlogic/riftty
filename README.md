@@ -59,6 +59,6 @@ Here is an example config:
 
 ### Misc
 
-* **WinFullscreen** - bool - when false the application will run in a window instead of fullscreen. true is the default.
-* **SwapAltAndMetaKeys** - bool - when true the option and command keys are swapped. The default value is false.
+* **WinFullscreen** (bool) when false the application will run in a window instead of fullscreen. true is the default.
+* **SwapAltAndMetaKeys** (bool) when true the option and command keys are swapped. The default value is false.
 
