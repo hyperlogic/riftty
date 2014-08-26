@@ -92,7 +92,7 @@ public:
     void apply(const Shader* prevShader, const float* attribPtr) const
     {
 <% prog.uniforms.each do |u| %>
-        if (m_locs[<%= u.name.camelcase %>UniformLoc])
+        if (m_locs[<%= u.name.camelcase %>UniformLoc] < 0)
             m_locs[<%= u.name.camelcase %>UniformLoc] = getUniformLoc("<%= u.name %><%= u.class == BasicType ? "" : "[0]" %>");
         assert(m_locs[<%= u.name.camelcase %>UniformLoc] >= 0);
 <% end %>
