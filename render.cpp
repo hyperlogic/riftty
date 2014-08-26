@@ -165,6 +165,8 @@ void RenderTextBegin(const Matrixf& projMatrix, const Matrixf& viewMatrix, const
     s_fullbrightVertColorShader->setMat(fullMatrix);
     s_fullbrightTexturedShader->setMat(fullMatrix);
     s_fullbrightTexturedTextShader->setMat(fullMatrix);
+    s_fullbrightTexturedVertColorShader->setMat(fullMatrix);
+    s_fullbrightTexturedVertColorTextShader->setMat(fullMatrix);
 }
 
 void RenderText(const std::vector<gb::Quad>& quadVec)
@@ -223,8 +225,16 @@ void RenderText(const std::vector<gb::Quad>& quadVec)
     s_prevShader = s_fullbrightVertColorShader;
     glDrawElements(GL_TRIANGLES, s_indexVec.size(), GL_UNSIGNED_SHORT, reinterpret_cast<uint16_t*>(&s_indexVec[0]));
 
+    s_attribVec.clear();
+    s_indexVec.clear();
+
+    // hack: assuming the texture for the first quad is relevent for all of them!
+    s_fullbrightTexturedVertColorTextShader->setTex(quadVec[0].glTexObj);
+    s_fullbrightTexturedVertColorTextShader->setLodBias(-1.0f);
+
     // draw fg glyphs
     const float kDepthOffset = 0.0f;
+    i = 0;
     for (auto &quad : quadVec) {
         const WIN_TextUserData* data = (const WIN_TextUserData*)quad.userData;
 
@@ -236,22 +246,29 @@ void RenderText(const std::vector<gb::Quad>& quadVec)
             Vector2f size = Vector2f(quad.size.x - 2*inset, quad.size.y - 2*inset);
             Vector2f uv_origin = Vector2f(quad.uvOrigin.x + uvInset, quad.uvOrigin.y + uvInset);
             Vector2f uv_size = Vector2f(quad.uvSize.x - 2*uvInset, quad.uvSize.y - 2*uvInset);
-            float attrib[20] = {
+            Vector4f fg_color = UintColorToVector4(data->fg_color);
+            float attrib[36] = {
                 origin.x, origin.y, kDepthOffset, uv_origin.x, uv_origin.y,
+                fg_color.x, fg_color.y, fg_color.z, fg_color.w,
                 origin.x + size.x, origin.y, kDepthOffset, uv_origin.x + uv_size.x, uv_origin.y,
+                fg_color.x, fg_color.y, fg_color.z, fg_color.w,
                 origin.x, origin.y + size.y, kDepthOffset, uv_origin.x, uv_origin.y + uv_size.y,
-                origin.x + size.x, origin.y + size.y, kDepthOffset, uv_origin.x + uv_size.x, uv_origin.y + uv_size.y
+                fg_color.x, fg_color.y, fg_color.z, fg_color.w,
+                origin.x + size.x, origin.y + size.y, kDepthOffset, uv_origin.x + uv_size.x, uv_origin.y + uv_size.y,
+                fg_color.x, fg_color.y, fg_color.z, fg_color.w
             };
 
-            s_fullbrightTexturedTextShader->setColor(UintColorToVector4(data->fg_color));
-            s_fullbrightTexturedTextShader->setTex(quad.glTexObj);
-            s_fullbrightTexturedTextShader->setLodBias(-1.0f);
-            s_fullbrightTexturedTextShader->apply(s_prevShader, attrib);
-            s_prevShader = s_fullbrightTexturedTextShader;
-
-            glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, indices);
+            for (int j = 0; j < 36; j++)
+                s_attribVec.push_back(attrib[j]);
+            for (int j = 0; j < 6; j++)
+                s_indexVec.push_back(4 * i + indices[j]);
+            i++;
         }
     }
+
+    s_fullbrightTexturedVertColorTextShader->apply(s_prevShader, reinterpret_cast<float*>(&s_attribVec[0]));
+    s_prevShader = s_fullbrightTexturedVertColorTextShader;
+    glDrawElements(GL_TRIANGLES, s_indexVec.size(), GL_UNSIGNED_SHORT, reinterpret_cast<uint16_t*>(&s_indexVec[0]));
 
     // enable depth writes
     glDepthMask(GL_TRUE);
