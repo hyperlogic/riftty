@@ -193,7 +193,7 @@ void RenderText(const std::vector<gb::Quad>& quadVec)
 
         Vector4f bg_color = UintColorToVector4(data->bg_color);
         // TODO: but this in cfg
-        bg_color.w = 0.75f;
+        bg_color.w = 0.85f;
 
         uint32_t y_offset = data->line_height / 3; // hack
         Vector2f origin = Vector2f(quad.pen.x, quad.pen.y + y_offset);
@@ -320,8 +320,8 @@ void RenderFloor(const Matrixf& projMatrix, const Matrixf& viewMatrix, float hei
     if (!init) {
         std::vector<Vector3f> lightWorldPos;
         lightWorldPos.push_back(Vector3f(0, 4 * kFeetToMeters, 0));
-        lightWorldPos.push_back(Vector3f(10 * kFeetToMeters, 4 * kFeetToMeters, 0.0f));
-        lightWorldPos.push_back(Vector3f(0, 4 * kFeetToMeters, 10 * kFeetToMeters));
+        lightWorldPos.push_back(Vector3f(10 * kFeetToMeters, -1, -1.0f));
+        lightWorldPos.push_back(Vector3f(0, 4 * kFeetToMeters, 0));
         s_phongTexturedShader->setLightWorldPos(lightWorldPos);
 
         std::vector<Vector3f> lightColor;
@@ -331,9 +331,9 @@ void RenderFloor(const Matrixf& projMatrix, const Matrixf& viewMatrix, float hei
         s_phongTexturedShader->setLightColor(lightColor);
 
         std::vector<float> lightStrength;
-        lightStrength.push_back(20);
         lightStrength.push_back(10);
-        lightStrength.push_back(10);
+        lightStrength.push_back(5);
+        lightStrength.push_back(5);
         s_phongTexturedShader->setLightStrength(lightStrength);
 
         s_phongTexturedShader->setNumLights(3);
