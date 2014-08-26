@@ -54,7 +54,7 @@ const config default_cfg = {
   .clicks_target_app = true,
   .click_target_mod = MDK_SHIFT,
   // Window
-  .win_pos = {0.0f, 1.0f, -1.0f},
+  .win_pos = {0.2f, 1.5f, -1.2f},
   .win_rot = {0.0f, 0.0f, 0.0f},
   .win_anchor = {0.5f, 0.5f},
   .win_width = 2.0f,
