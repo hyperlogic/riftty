@@ -89,6 +89,11 @@ public:
             m_locs[i] = -1;
     }
 
+    bool compileAndLink()
+    {
+        return compileAndLinkFromFiles("<%= prog.vsh %>", "<%= prog.fsh %>");
+    }
+
     void apply(const Shader* prevShader, const float* attribPtr) const
     {
 <% prog.uniforms.each do |u| %>
@@ -232,13 +237,24 @@ progs = [Prog.new("fullbright_shader",
                   [BasicType.new(:vec4, :color),
                    BasicType.new(:mat4, :mat)],
                   [BasicType.new(:vec3, :pos)]),
+
          Prog.new("fullbright_vert_color_shader",
                   "shader/fullbright_vert_color.vsh",
                   "shader/fullbright_vert_color.fsh",
                   [BasicType.new(:mat4, :mat)],
                   [BasicType.new(:vec3, :pos),
                    BasicType.new(:vec4, :color)]),
+
          Prog.new("fullbright_textured_shader",
+                  "shader/fullbright_textured.vsh",
+                  "shader/fullbright_textured.fsh",
+                  [BasicType.new(:vec4, :color),
+                   BasicType.new(:mat4, :mat),
+                   BasicType.new(:sampler2D, :tex)],
+                  [BasicType.new(:vec3, :pos),
+                   BasicType.new(:vec2, :uv)]),
+
+         Prog.new("fullbright_textured_text_shader",
                   "shader/fullbright_textured.vsh",
                   "shader/fullbright_textured_text.fsh",
                   [BasicType.new(:vec4, :color),
@@ -247,6 +263,26 @@ progs = [Prog.new("fullbright_shader",
                    BasicType.new(:float, :lod_bias)],
                   [BasicType.new(:vec3, :pos),
                    BasicType.new(:vec2, :uv)]),
+
+         Prog.new("fullbright_textured_vert_color_shader",
+                  "shader/fullbright_textured_vert_color.vsh",
+                  "shader/fullbright_textured_vert_color.fsh",
+                  [BasicType.new(:vec4, :color),
+                   BasicType.new(:mat4, :mat),
+                   BasicType.new(:sampler2D, :tex)],
+                  [BasicType.new(:vec3, :pos),
+                   BasicType.new(:vec2, :uv)]),
+
+         Prog.new("fullbright_textured_vert_color_text_shader",
+                  "shader/fullbright_textured_vert_color.vsh",
+                  "shader/fullbright_textured_vert_color_text.fsh",
+                  [BasicType.new(:vec4, :color),
+                   BasicType.new(:mat4, :mat),
+                   BasicType.new(:sampler2D, :tex),
+                  BasicType.new(:float, :lod_bias)],
+                  [BasicType.new(:vec3, :pos),
+                   BasicType.new(:vec2, :uv)]),
+
          Prog.new("phong_textured_shader",
                   "shader/phong_textured.vsh",
                   "shader/phong_textured.fsh",

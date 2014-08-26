@@ -7,6 +7,9 @@
 #include "FullbrightShader.h"
 #include "FullbrightVertColorShader.h"
 #include "FullbrightTexturedShader.h"
+#include "FullbrightTexturedTextShader.h"
+#include "FullbrightTexturedVertColorShader.h"
+#include "FullbrightTexturedVertColorTextShader.h"
 #include "PhongTexturedShader.h"
 
 #ifdef DEBUG
@@ -46,7 +49,9 @@ void GLErrorCheck(const char* message)
 FullbrightShader* s_fullbrightShader = 0;
 FullbrightVertColorShader* s_fullbrightVertColorShader = 0;
 FullbrightTexturedShader* s_fullbrightTexturedShader = 0;
-FullbrightTexturedShader* s_fullbrightTexturedTextShader = 0;
+FullbrightTexturedTextShader* s_fullbrightTexturedTextShader = 0;
+FullbrightTexturedVertColorShader* s_fullbrightTexturedVertColorShader = 0;
+FullbrightTexturedVertColorTextShader* s_fullbrightTexturedVertColorTextShader = 0;
 PhongTexturedShader* s_phongTexturedShader = 0;
 Shader* s_prevShader = 0;
 GLuint s_checker = 0;
@@ -94,34 +99,31 @@ static GLint CreateCheckerTexture()
 void RenderInit()
 {
     s_fullbrightShader = new FullbrightShader();
-    bool success = s_fullbrightShader->compileAndLinkFromFiles("shader/fullbright.vsh",
-                                                               "shader/fullbright.fsh");
-    if (!success)
+    if (!s_fullbrightShader->compileAndLink())
         exit(EXIT_FAILURE);
 
     s_fullbrightVertColorShader = new FullbrightVertColorShader();
-    success = s_fullbrightVertColorShader->compileAndLinkFromFiles("shader/fullbright_vert_color.vsh",
-                                                                   "shader/fullbright_vert_color.fsh");
-    if (!success)
+    if (!s_fullbrightVertColorShader->compileAndLink())
         exit(EXIT_FAILURE);
-
 
     s_fullbrightTexturedShader = new FullbrightTexturedShader();
-    success = s_fullbrightTexturedShader->compileAndLinkFromFiles("shader/fullbright_textured.vsh",
-                                                                  "shader/fullbright_textured.fsh");
-    if (!success)
+    if (!s_fullbrightTexturedShader->compileAndLink())
         exit(EXIT_FAILURE);
 
-    s_fullbrightTexturedTextShader = new FullbrightTexturedShader();
-    success = s_fullbrightTexturedTextShader->compileAndLinkFromFiles("shader/fullbright_textured.vsh",
-                                                                      "shader/fullbright_textured_text.fsh");
-    if (!success)
+    s_fullbrightTexturedTextShader = new FullbrightTexturedTextShader();
+    if (!s_fullbrightTexturedTextShader->compileAndLink())
+        exit(EXIT_FAILURE);
+
+    s_fullbrightTexturedVertColorShader = new FullbrightTexturedVertColorShader();
+    if (!s_fullbrightTexturedVertColorShader->compileAndLink())
+        exit(EXIT_FAILURE);
+
+    s_fullbrightTexturedVertColorTextShader = new FullbrightTexturedVertColorTextShader();
+    if (!s_fullbrightTexturedVertColorTextShader->compileAndLink())
         exit(EXIT_FAILURE);
 
     s_phongTexturedShader = new PhongTexturedShader();
-    success = s_phongTexturedShader->compileAndLinkFromFiles("shader/phong_textured.vsh",
-                                                             "shader/phong_textured.fsh");
-    if (!success)
+    if (!s_phongTexturedShader->compileAndLink())
         exit(EXIT_FAILURE);
 
     s_checker = CreateCheckerTexture();
@@ -133,6 +135,9 @@ void RenderShutdown()
     delete s_fullbrightVertColorShader;
     delete s_fullbrightTexturedShader;
     delete s_fullbrightTexturedTextShader;
+    delete s_fullbrightTexturedVertColorShader;
+    delete s_fullbrightTexturedVertColorTextShader;
+    delete s_phongTexturedShader;
 }
 
 static Vector4f UintColorToVector4(uint32_t color)

@@ -15,4 +15,7 @@ deploy
 FullbrightShader.h
 FullbrightVertColorShader.h
 FullbrightTexturedShader.h
+FullbrightTexturedTextShader.h
+FullbrightTexturedVertColorShader.h
+FullbrightTexturedVertColorTextShader.h
 PhongTexturedShader.h

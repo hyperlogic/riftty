@@ -90,7 +90,11 @@ $OBJECTS = ['riftty.o',
            ]
 
 $GEN_HEADERS = ['FullbrightShader.h',
+                'FullbrightVertColorShader.h',
                 'FullbrightTexturedShader.h',
+                'FullbrightTexturedTextShader.h',
+                'FullbrightTexturedVertColorShader.h',
+                'FullbrightTexturedVertColorTextShader.h',
                 'PhongTexturedShader.h']
 
 $DEPS = $OBJECTS.map {|f| f[0..-3] + '.d'}
