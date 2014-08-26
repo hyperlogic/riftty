@@ -5,16 +5,14 @@
   * Windows... I suppose there would be value here?
 
 ## Configuration
-Configurable placement. add to .riftty config file (mintty/config.c)
-  * position, width, (in meters)
-  * actually use more of the config variables: such as rows, cols color. etc.
+Add more configuration variables to .riftty config file (mintty/config.c)
   * transparency
-  * font
-
-Document config variables and what values they expect.
+  * color schemes
 
 ## Performance Improvements
-Already on DK2 with a full screen of text, my laptop can't keep 75htz.
+On DK2 with a 50+ rows text, my laptop can't keep 75htz.
+
+First pass, reduce draw calls, currently there is one call per-glyph, and two extra calls per string (bg)
 
 VBO's per line is probably the way to go, this way they don't have to be rebuilt
 when scrolling, the floor shader is per-pixel and dynamic, probably a static light map would
