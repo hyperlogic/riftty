@@ -139,7 +139,7 @@ void win_init(void)
 
     s_context->font = std::make_shared<gb::Font>(cfg.font.name, cfg.font.size, 4,
                                                  gb::FontRenderOption_Normal,
-                                                 gb::FontHintOption_None);
+                                                 gb::FontHintOption_Default);
 
     s_context->max_advance = s_context->font->GetMaxAdvance();
     s_context->line_height = s_context->font->GetLineHeight();
