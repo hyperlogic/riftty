@@ -13,5 +13,6 @@ deploy
 
 # generated shader headers
 FullbrightShader.h
+FullbrightVertColorShader.h
 FullbrightTexturedShader.h
 PhongTexturedShader.h

@@ -5,6 +5,7 @@
 #include "text.h"
 
 #include "FullbrightShader.h"
+#include "FullbrightVertColorShader.h"
 #include "FullbrightTexturedShader.h"
 #include "PhongTexturedShader.h"
 
@@ -43,6 +44,7 @@ void GLErrorCheck(const char* message)
 #endif
 
 FullbrightShader* s_fullbrightShader = 0;
+FullbrightVertColorShader* s_fullbrightVertColorShader = 0;
 FullbrightTexturedShader* s_fullbrightTexturedShader = 0;
 FullbrightTexturedShader* s_fullbrightTexturedTextShader = 0;
 PhongTexturedShader* s_phongTexturedShader = 0;
@@ -97,6 +99,13 @@ void RenderInit()
     if (!success)
         exit(EXIT_FAILURE);
 
+    s_fullbrightVertColorShader = new FullbrightVertColorShader();
+    success = s_fullbrightVertColorShader->compileAndLinkFromFiles("shader/fullbright_vert_color.vsh",
+                                                                   "shader/fullbright_vert_color.fsh");
+    if (!success)
+        exit(EXIT_FAILURE);
+
+
     s_fullbrightTexturedShader = new FullbrightTexturedShader();
     success = s_fullbrightTexturedShader->compileAndLinkFromFiles("shader/fullbright_textured.vsh",
                                                                   "shader/fullbright_textured.fsh");
@@ -121,6 +130,7 @@ void RenderInit()
 void RenderShutdown()
 {
     delete s_fullbrightShader;
+    delete s_fullbrightVertColorShader;
     delete s_fullbrightTexturedShader;
     delete s_fullbrightTexturedTextShader;
 }
@@ -147,6 +157,7 @@ void RenderTextBegin(const Matrixf& projMatrix, const Matrixf& viewMatrix, const
 {
     Matrixf fullMatrix = projMatrix * viewMatrix * modelMatrix;
     s_fullbrightShader->setMat(fullMatrix);
+    s_fullbrightVertColorShader->setMat(fullMatrix);
     s_fullbrightTexturedShader->setMat(fullMatrix);
     s_fullbrightTexturedTextShader->setMat(fullMatrix);
 }
@@ -155,6 +166,13 @@ void RenderText(const std::vector<gb::Quad>& quadVec)
 {
     static uint16_t indices[] = {0, 2, 1, 2, 3, 1};
 
+    static std::vector<float> s_attribVec;
+    static std::vector<uint16_t> s_indexVec;
+
+    s_attribVec.clear();
+    s_indexVec.clear();
+
+    // disable depth writes
     glDepthMask(GL_FALSE);
 
     Vector2f minCorner(FLT_MAX, FLT_MAX);
@@ -165,32 +183,40 @@ void RenderText(const std::vector<gb::Quad>& quadVec)
     for (auto &quad : quadVec)
     {
         const WIN_TextUserData* data = (const WIN_TextUserData*)quad.userData;
+
         Vector4f bg_color = UintColorToVector4(data->bg_color);
+        // TODO: but this in cfg
         bg_color.w = 0.75f;
-        s_fullbrightShader->setColor(bg_color);
 
         uint32_t y_offset = data->line_height / 3; // hack
         Vector2f origin = Vector2f(quad.pen.x, quad.pen.y + y_offset);
         Vector2f size = Vector2f(data->max_advance, -(float)data->line_height);
 
+        // keep track of min and max corner.
         if (i == 0)
             minCorner = origin;
         else if (i == quadVec.size() - 1)
             maxCorner = origin + size;
 
-        float pos[12] = {
+        float attrib[28] = {
             origin.x, origin.y, 0,
+            bg_color.x, bg_color.y, bg_color.z, bg_color.w,
             origin.x + size.x, origin.y, 0,
+            bg_color.x, bg_color.y, bg_color.z, bg_color.w,
             origin.x, origin.y + size.y, 0,
-            origin.x + size.x, origin.y + size.y, 0
+            bg_color.x, bg_color.y, bg_color.z, bg_color.w,
+            origin.x + size.x, origin.y + size.y, 0,
+            bg_color.x, bg_color.y, bg_color.z, bg_color.w
         };
-
-        s_fullbrightShader->apply(s_prevShader, pos);
-        s_prevShader = s_fullbrightShader;
-
-        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, indices);
+        for (int j = 0; j < 28; j++)
+            s_attribVec.push_back(attrib[j]);
+        for (int j = 0; j < 6; j++)
+            s_indexVec.push_back(4 * i + indices[j]);
         i++;
     }
+    s_fullbrightVertColorShader->apply(s_prevShader, reinterpret_cast<float*>(&s_attribVec[0]));
+    s_prevShader = s_fullbrightVertColorShader;
+    glDrawElements(GL_TRIANGLES, s_indexVec.size(), GL_UNSIGNED_SHORT, reinterpret_cast<uint16_t*>(&s_indexVec[0]));
 
     // draw fg glyphs
     const float kDepthOffset = 0.0f;
@@ -222,8 +248,10 @@ void RenderText(const std::vector<gb::Quad>& quadVec)
         }
     }
 
-    // paint depth
+    // enable depth writes
     glDepthMask(GL_TRUE);
+
+    // disable color buffer writes
     glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_FALSE);
 
     if (quadVec.size())
@@ -241,9 +269,9 @@ void RenderText(const std::vector<gb::Quad>& quadVec)
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_SHORT, indices);
     }
 
+    // re-enable color buffer writes.
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 
-    // enable
     GL_ERROR_CHECK("TextRenderFunc");
 }
 
