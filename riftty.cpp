@@ -426,7 +426,9 @@ void RestartHandler(int signal)
 void Restart()
 {
     printf("RESTART! pid = %d\n", getpid());
-    char* const argv[] = {"./riftty", NULL};
+    char* argv[2];
+    argv[0] = (char*)"./riftty";
+    argv[1] = NULL;
     int err = execvp(*argv, argv);
     if (err == -1)
         perror("execvp");
