@@ -223,7 +223,7 @@ void RiftConfigure()
     ovrGLConfig conf;
     memset(&conf, 0, sizeof(ovrGLConfig));
     conf.OGL.Header.API = ovrRenderAPI_OpenGL;
-    conf.OGL.Header.RTSize = {s_hmd->Resolution.w, s_hmd->Resolution.h};
+    conf.OGL.Header.BackBufferSize = {s_hmd->Resolution.w, s_hmd->Resolution.h};
     conf.OGL.Header.Multisample = 0;
     // TODO: on windows need to set HWND, on Linux need to set other parameters
     if (!ovrHmd_ConfigureRendering(s_hmd, &conf.Config, s_hmd->DistortionCaps & ~ovrDistortionCap_FlipInput, s_hmd->DefaultEyeFov, s_eyeRenderDesc))
@@ -294,7 +294,7 @@ void Render(float dt)
     for (int i = 0; i < 2; i++)
     {
         ovrEyeType eye = s_hmd->EyeRenderOrder[i];
-        ovrPosef pose = ovrHmd_GetEyePose(s_hmd, eye);
+        ovrPosef pose = ovrHmd_GetHmdPosePerEye(s_hmd, eye);
         headPose[eye] = pose;
 
         glViewport(s_eyeTexture[eye].Header.RenderViewport.Pos.x,
@@ -318,9 +318,9 @@ void Render(float dt)
                                            Vector4f(ovrProj.M[3][0], ovrProj.M[3][1], ovrProj.M[3][2], ovrProj.M[3][3]));
 
         // use EyeRenderDesc.ViewAdjust to do eye offset.
-        Matrixf viewMatrix = viewCenter * Matrixf::Trans(Vector3f(s_eyeRenderDesc[eye].ViewAdjust.x,
-                                                                  s_eyeRenderDesc[eye].ViewAdjust.y,
-                                                                  s_eyeRenderDesc[eye].ViewAdjust.z));
+        Matrixf viewMatrix = viewCenter * Matrixf::Trans(Vector3f(s_eyeRenderDesc[eye].HmdToEyeViewOffset.x,
+                                                                  s_eyeRenderDesc[eye].HmdToEyeViewOffset.y,
+                                                                  s_eyeRenderDesc[eye].HmdToEyeViewOffset.z));
 
         RenderBegin();
 
@@ -426,7 +426,9 @@ void RestartHandler(int signal)
 void Restart()
 {
     printf("RESTART! pid = %d\n", getpid());
-    char* const argv[] = {"./riftty", NULL};
+    char* argv[2];
+    argv[0] = (char*)"./riftty";
+    argv[1] = NULL;
     int err = execvp(*argv, argv);
     if (err == -1)
         perror("execvp");
