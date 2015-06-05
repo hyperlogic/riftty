@@ -9,7 +9,7 @@ namespace gb {
     struct Quad;
 }
 
-void RenderInit();
+void RenderInit(bool verbose = false);
 
 void RenderBegin();
 void RenderEnd();

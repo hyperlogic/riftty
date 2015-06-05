@@ -33,14 +33,18 @@ int Pty_Make(struct Pty **pty_out)
     pty->term.c_cc[VINTR] = CTRLKEY('C');
     pty->term.c_cc[VQUIT] = 0x1c;           // Control+backslash
     pty->term.c_cc[VSUSP] = CTRLKEY('Z');
+#ifndef LINUX
     pty->term.c_cc[VDSUSP] = CTRLKEY('Y');
+#endif
     pty->term.c_cc[VSTART] = CTRLKEY('Q');
     pty->term.c_cc[VSTOP] = CTRLKEY('S');
     pty->term.c_cc[VLNEXT] = CTRLKEY('V');
     pty->term.c_cc[VDISCARD] = CTRLKEY('O');
     pty->term.c_cc[VMIN] = 1;
     pty->term.c_cc[VTIME] = 0;
+#ifndef LINUX
     pty->term.c_cc[VSTATUS] = CTRLKEY('T');
+#endif
 
     pty->term.c_ispeed = B38400;
     pty->term.c_ospeed = B38400;

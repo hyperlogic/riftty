@@ -36,10 +36,18 @@ extern "C" {
 #include "term.h"
 #include "child.h"
 #include "win.h"
+#ifdef LINUX
+#include <sys/ioctl.h>
+#endif
 }
 
+#ifdef DARWIN
 #include "../Src/OVR_CAPI.h"
 #include "../Src/OVR_CAPI_GL.h"
+#else
+#include <OVR_CAPI.h>
+#include <OVR_CAPI_GL.h>
+#endif
 
 const float kFeetToMeters = 0.3048;
 
@@ -117,13 +125,17 @@ void DumpHMDInfo(ovrHmd hmd)
     printf("        Position = %s\n", hmd->TrackingCaps & ovrTrackingCap_Position ? "TRUE" : "FALSE");
 
     printf("    DistortionCaps = 0x%x\n", hmd->DistortionCaps);
-    printf("        Chromatic = %s\n", hmd->DistortionCaps & ovrDistortionCap_Chromatic ? "TRUE" : "FALSE");
     printf("        TimeWarp = %s\n", hmd->DistortionCaps & ovrDistortionCap_TimeWarp ? "TRUE" : "FALSE");
     printf("        Vignette = %s\n", hmd->DistortionCaps & ovrDistortionCap_Vignette ? "TRUE" : "FALSE");
     printf("        NoRestore = %s\n", hmd->DistortionCaps & ovrDistortionCap_NoRestore ? "TRUE" : "FALSE");
     printf("        FlipInput = %s\n", hmd->DistortionCaps & ovrDistortionCap_FlipInput ? "TRUE" : "FALSE");
     printf("        SRGB = %s\n", hmd->DistortionCaps & ovrDistortionCap_SRGB ? "TRUE" : "FALSE");
     printf("        Overdrive = %s\n", hmd->DistortionCaps & ovrDistortionCap_Overdrive ? "TRUE" : "FALSE");
+    printf("        HqDistortion = %s\n", hmd->DistortionCaps & ovrDistortionCap_HqDistortion ? "TRUE" : "FALSE");
+    printf("        LinuxDevFullscreen = %s\n", hmd->DistortionCaps & ovrDistortionCap_LinuxDevFullscreen ? "TRUE" : "FALSE");
+    printf("        ComputeShader = %s\n", hmd->DistortionCaps & ovrDistortionCap_ComputeShader ? "TRUE" : "FALSE");
+    printf("        TimewarpJitDelay = %s\n", hmd->DistortionCaps & ovrDistortionCap_TimewarpJitDelay ? "TRUE" : "FALSE");
+    printf("        ProfileNoSpinWaits = %s\n", hmd->DistortionCaps & ovrDistortionCap_ProfileNoSpinWaits ? "TRUE" : "FALSE");
 
     printf("    DefaultEyeFov = [(%f, %f, %f, %f), (%f, %f, %f, %f])]\n",
            hmd->DefaultEyeFov[0].UpTan, hmd->DefaultEyeFov[0].DownTan, hmd->DefaultEyeFov[0].LeftTan, hmd->DefaultEyeFov[0].RightTan,
@@ -173,9 +185,37 @@ void TermInit()
     unsigned short term_width = font_width * cfg.cols;
     unsigned short term_height = font_height * cfg.rows;
 
+#ifdef DARWIN
     char login[128];
-    strncpy(login, getlogin(), 128);
+    char* username = getlogin();
+    if (!username) {
+        username = getenv("LOGNAME");
+        if (!username) {
+            fprintf(stderr, "ERROR: Could not determine username, try setting LOGNAME environment variable\n");
+            exit(1);
+        }
+    }
+    strncpy(login, username, 128);
+
     const char* login_argv[] = {"login", "-pfl", login, NULL};
+#endif
+#ifdef LINUX
+    char* env_shell = getenv("SHELL");
+    const struct passwd *pass = getpwuid(getuid());
+	if (pass) {
+		setenv("LOGNAME", pass->pw_name, 1);
+		setenv("USER", pass->pw_name, 1);
+		setenv("SHELL", pass->pw_shell, 0);
+		setenv("HOME", pass->pw_dir, 0);
+	}
+    char* shell = env_shell ? env_shell : pass->pw_shell;
+    if (!shell) {
+        fprintf(stderr, "ERROR: could not determine shell to use, try setting SHELL environment variable\n");
+        exit(2);
+    }
+    const char* login_argv[] = {shell, "-i", NULL};
+#endif
+
     unsigned short rows = cfg.rows;
     unsigned short cols = cfg.cols;
     winsize ws = {rows, cols, term_width, term_height};
@@ -454,6 +494,10 @@ int main(int argc, char* argv[])
     SDL_Renderer* displayRenderer;
 
     uint32_t flags = SDL_WINDOW_OPENGL | (cfg.win_fullscreen ? SDL_WINDOW_FULLSCREEN : 0);
+
+    // AJT: no fullscreen
+    flags = SDL_WINDOW_OPENGL;
+
 	int err = SDL_CreateWindowAndRenderer(s_hmd->Resolution.w, s_hmd->Resolution.h, flags, &displayWindow, &displayRenderer);
 	if (err == -1 || !displayWindow || !displayRenderer) {
 		fprintf(stderr, "SDL_CreateWindowAndRenderer failed!\n");
@@ -473,7 +517,7 @@ int main(int argc, char* argv[])
     JOYSTICK_Init();
 
     RiftConfigure();
-    RenderInit();
+    RenderInit(true);
     TermInit();
 
     bool done = false;

@@ -1,6 +1,12 @@
 require 'rake/clean'
 
-$CC = 'clang'
+$PLATFORM = `uname`.chomp
+
+if $PLATFORM == 'Darwin'
+  $CC = 'clang'
+elsif $PLATFORM == 'Linux'
+  $CC = 'gcc'
+end
 
 # used by tags task
 class Dir
@@ -23,43 +29,45 @@ end
 $C_FLAGS = ['-Wall',
             `sdl2-config --cflags`.chomp,
             `freetype-config --cflags`.chomp,
-            '-DDARWIN',
             "-Iglyphblaster/src",
             "-Iabaci/src",
             "-Imintty/",
-            "-I../OculusSDK/LibOVR/Include"
            ]
 
 $CPP_FLAGS = ['-Wall',
             '--std=c++11',
             `sdl2-config --cflags`.chomp,
             `freetype-config --cflags`.chomp,
-            '-DDARWIN',
             "-Iglyphblaster/src",
             "-Iabaci/src",
             "-Imintty/",
-            "-I../OculusSDK/LibOVR/Include",
             "-fno-rtti"
            ]
 
-$DEBUG_C_FLAGS = ['-g',
-                  '-DDEBUG'
-                 ]
-
+$DEBUG_C_FLAGS = ['-g','-DDEBUG']
 $OPT_C_FLAGS = ['-O3', '-DNDEBUG'];
 
 $L_FLAGS = [`sdl2-config --libs`.chomp,
             `freetype-config --libs`.chomp,
             '-lstdc++',
-            '-lharfbuzz',
-            "-L../OculusSDK/LibOVR/Lib/Mac/Release/",
-            "-lovr",
-            '-framework Cocoa',
-            '-framework OpenGL',
-            '-framework CoreServices',
-            '-framework ApplicationServices',
-            '-framework IOKit'
+#            '-lharfbuzz',
+            '-lOVR',
            ]
+
+if $PLATFORM == 'Darwin'
+  $C_FLAGS += ['-DDARWIN', "-I../OculusSDK/LibOVR/Include"]
+  $CPP_FLAGS += ['-DDARWIN', "-I../OculusSDK/LibOVR/Include"]
+  $L_FLAGS += ["-L../OculusSDK/LibOVR/Lib/Mac/Release/",
+               '-framework Cocoa',
+               '-framework OpenGL',
+               '-framework CoreServices',
+               '-framework ApplicationServices',
+               '-framework IOKit']
+elsif $PLATFORM == 'Linux'
+  $C_FLAGS += ['-DLINUX', "-I../ovr_sdk_linux_0.5.0.1/LibOVR/Include", "-I../ovr_sdk_linux_0.5.0.1/LibOVRKernel/Src"]
+  $CPP_FLAGS += ['-DLINUX', "-I../ovr_sdk_linux_0.5.0.1/LibOVR/Include", "-I../ovr_sdk_linux_0.5.0.1/LibOVRKernel/Src"]
+  $L_FLAGS += ['-lGL', '-lm', '-lc', '-ldl', '-lutil']
+end
 
 $OBJECTS = ['riftty.o',
             'pty.o',
@@ -177,9 +185,11 @@ task :build => $EXE
 
 task :add_opt_flags do
   $C_FLAGS += $OPT_C_FLAGS
+  $CPP_FLAGS += $OPT_C_FLAGS
 end
 task :add_debug_flags do
   $C_FLAGS += $DEBUG_C_FLAGS
+  $CPP_FLAGS += $DEBUG_C_FLAGS
 end
 
 desc "Optimized Build"

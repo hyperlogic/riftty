@@ -96,8 +96,57 @@ static GLint CreateCheckerTexture()
     return retVal;
 }
 
-void RenderInit()
+// prints all available OpenGL extensions
+static void _DumpExtensions()
 {
+    const GLubyte* extensions = glGetString(GL_EXTENSIONS);
+    printf("extensions =\n");
+
+    std::string str((const char *)extensions);
+    size_t s = 0;
+    size_t t = str.find_first_of(' ', s);
+    while (t != std::string::npos)
+    {
+        printf("    %s\n", str.substr(s, t - s).c_str());
+        s = t + 1;
+        t = str.find_first_of(' ', s);
+    }
+}
+
+void RenderInit(bool verbose)
+{
+    // print out gl version info
+    if (verbose)
+    {
+        const GLubyte* version = glGetString(GL_VERSION);
+        printf("OpenGL\n");
+        printf("    version = %s\n", version);
+
+        const GLubyte* vendor = glGetString(GL_VENDOR);
+        printf("    vendor = %s\n", vendor);
+
+        const GLubyte* renderer = glGetString(GL_RENDERER);
+        printf("    renderer = %s\n", renderer);
+
+        const GLubyte* shadingLanguageVersion = glGetString(GL_SHADING_LANGUAGE_VERSION);
+        printf("    shader language version = %s\n", shadingLanguageVersion);
+
+        int maxTextureUnits;
+        glGetIntegerv(GL_MAX_COMBINED_TEXTURE_IMAGE_UNITS, &maxTextureUnits);
+        printf("    max texture units = %d\n", maxTextureUnits);
+
+#ifndef GL_ES_VERSION_2_0
+        int maxVertexUniforms, maxFragmentUniforms;
+        glGetIntegerv(GL_MAX_VERTEX_UNIFORM_COMPONENTS, &maxVertexUniforms);
+        glGetIntegerv(GL_MAX_FRAGMENT_UNIFORM_COMPONENTS, &maxFragmentUniforms);
+        printf("    max vertex uniforms = %d\n", maxVertexUniforms);
+        printf("    max fragment uniforms = %d\n", maxFragmentUniforms);
+#endif
+    }
+
+    if (verbose)
+        _DumpExtensions();
+
     s_fullbrightShader = new FullbrightShader();
     if (!s_fullbrightShader->compileAndLink())
         exit(EXIT_FAILURE);

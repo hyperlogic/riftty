@@ -17,11 +17,8 @@
 #include <poll.h>
 //#include <sys/cygwin.h>
 
-#if 1//CYGWIN_VERSION_API_MINOR >= 93
-//#include <pty.h>
+#ifdef DARWIN
 #include <util.h> // on macos this is where forkpty is.
-#else
-int forkpty(int *, char *, struct termios *, struct winsize *);
 #endif
 
 //#include <winbase.h>
@@ -81,6 +78,7 @@ child_create(const char *argv[], struct winsize *winp)
     // Create the child process and pseudo terminal.
     char pty_name[PATH_MAX];
     pid = forkpty(&pty_fd, pty_name, 0, winp);
+
     if (pid < 0) {
         pid = 0;
         bool rebase_prompt = (errno == EAGAIN);
@@ -128,6 +126,7 @@ child_create(const char *argv[], struct winsize *winp)
         attr.c_lflag |= ECHOE | ECHOK | ECHOCTL | ECHOKE;
         tcsetattr(0, TCSANOW, &attr);
 
+        fprintf(parent_stderr, "mintty: error = %s\n", strerror(errno));
         fprintf(parent_stderr, "mintty: before execvp in child pid = %d\n", getpid());
 
         // Invoke command
@@ -190,14 +189,18 @@ child_create(const char *argv[], struct winsize *winp)
 void
 child_poll(void)
 {
-    struct pollfd pfd = {pty_fd, POLLRDBAND, 0};
+    struct pollfd pfd = {pty_fd, POLLIN | POLLRDBAND, 0};
 
-    poll(&pfd, 1, 0);
-    if (pfd.revents & POLLRDBAND) {
+    int ret = poll(&pfd, 1, 0);
+    if (ret < 0) {
+        fprintf(stderr, "mintty: poll error = %s\n", strerror(errno));
+        return;
+    }
+
+    if (pfd.revents & POLLRDBAND || pfd.revents & POLLIN) {
 
         if (term.paste_buffer)
             term_send_paste();
-
 
         static char buf[4096];
         int len = read(pty_fd, buf, sizeof buf);
@@ -284,6 +287,7 @@ child_printf(const char *fmt, ...)
 void
 child_send(const char *buf, uint len)
 {
+
     /*
     fprintf(stderr, "mintty: child_send ");
     int i;

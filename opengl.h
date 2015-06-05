@@ -2,19 +2,20 @@
 #define OPENGL_H
 
 #ifdef __APPLE__
-	#include "TargetConditionals.h"
+    #include "TargetConditionals.h"
 #endif
 
 #if defined DARWIN
-	#include <OpenGL/gl.h>
-	#include <OpenGL/glu.h>
+    #include <OpenGL/gl.h>
+    #include <OpenGL/glu.h>
 #elif TARGET_OS_IPHONE || TARGET_IPHONE_SIMULATOR
-	#include <OpenGLES/ES2/gl.h>
-	#include <OpenGLES/ES2/glext.h>
+    #include <OpenGLES/ES2/gl.h>
+    #include <OpenGLES/ES2/glext.h>
 #else
-	#include <GL/gl.h>
-	#include <GL/glext.h>
-	#include <GL/glu.h>
+    #define GL_GLEXT_PROTOTYPES 1
+    #include <GL/gl.h>
+    #include <GL/glext.h>
+    #include <GL/glu.h>
 #endif
 
 #endif // #define OPENGL_H

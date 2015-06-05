@@ -5,8 +5,17 @@
 extern "C" {
 #endif
 
+#ifdef DARWIN
 #include <util.h>
 #include <sys/syslimits.h>
+#endif
+
+#ifdef LINUX
+#include <sys/types.h>
+#include <linux/limits.h>
+#include <termios.h>
+#include <sys/ioctl.h>
+#endif
 
 struct Pty
 {

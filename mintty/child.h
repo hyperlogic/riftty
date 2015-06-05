@@ -4,6 +4,14 @@
 #include <sys/termios.h>
 #include "std.h"
 
+#ifdef LINUX
+#include <pty.h>
+#include <sys/types.h>
+#include <linux/limits.h>
+#include <termios.h>
+#include <sys/ioctl.h>
+#endif
+
 extern char *home, *cmd;
 
 void child_create(const char *argv[], struct winsize *winp);
