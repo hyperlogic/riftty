@@ -1,0 +1,9 @@
+# Helper to view rift screen using vnc
+# Thanks, John Tsiombikas
+
+#!/bin/sh
+
+x11vnc -display :0.1 -scale 0.5 -rotate +90 \
+	-localhost -nopw -norc -timeout 1 \
+	-q -viewonly -once -bg && \
+vncviewer localhost

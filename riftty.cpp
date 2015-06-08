@@ -91,6 +91,17 @@ void TermConfigInit()
 void DumpHMDInfo(ovrHmd hmd)
 {
     printf("HMDInfo\n");
+    char* type = (char*)"???";
+    switch (hmd->Type) {
+    case ovrHmd_None: type = (char*)"None"; break;
+    case ovrHmd_DK1: type = (char*)"DK1"; break;
+    case ovrHmd_DKHD: type = (char*)"DKHD"; break;
+    case ovrHmd_DK2: type = (char*)"DK2"; break;
+    case ovrHmd_BlackStar: type = (char*)"BlackStar"; break;
+    case ovrHmd_CB: type = (char*)"CB"; break;
+    case ovrHmd_Other: type = (char*)"Other"; break;
+    }
+    printf("    Type = %s\n", type);
     printf("    ProductName = \"%s\"\n", hmd->ProductName);
     printf("    Manufacturer = \"%s\"\n", hmd->Manufacturer);
     printf("    VendorId = %d\n", hmd->VendorId);
@@ -263,7 +274,11 @@ void RiftConfigure()
     ovrGLConfig conf;
     memset(&conf, 0, sizeof(ovrGLConfig));
     conf.OGL.Header.API = ovrRenderAPI_OpenGL;
+#ifdef LINUX
+    conf.OGL.Header.BackBufferSize = {s_hmd->Resolution.h, s_hmd->Resolution.w};
+#else
     conf.OGL.Header.BackBufferSize = {s_hmd->Resolution.w, s_hmd->Resolution.h};
+#endif
     conf.OGL.Header.Multisample = 0;
     // TODO: on windows need to set HWND, on Linux need to set other parameters
     if (!ovrHmd_ConfigureRendering(s_hmd, &conf.Config, s_hmd->DistortionCaps & ~ovrDistortionCap_FlipInput, s_hmd->DefaultEyeFov, s_eyeRenderDesc))
@@ -495,13 +510,17 @@ int main(int argc, char* argv[])
 
     uint32_t flags = SDL_WINDOW_OPENGL | (cfg.win_fullscreen ? SDL_WINDOW_FULLSCREEN : 0);
 
-    // AJT: no fullscreen
-    flags = SDL_WINDOW_OPENGL;
-
+#ifdef LINUX
+    int err = SDL_CreateWindowAndRenderer(s_hmd->Resolution.h, s_hmd->Resolution.w, flags, &displayWindow, &displayRenderer);
+#else
 	int err = SDL_CreateWindowAndRenderer(s_hmd->Resolution.w, s_hmd->Resolution.h, flags, &displayWindow, &displayRenderer);
+#endif
 	if (err == -1 || !displayWindow || !displayRenderer) {
 		fprintf(stderr, "SDL_CreateWindowAndRenderer failed!\n");
 	}
+
+    SDL_DisplayMode currentMode;
+    SDL_GetWindowDisplayMode(displayWindow, &currentMode);
 
 	SDL_RendererInfo displayRendererInfo;
     SDL_GetRendererInfo(displayRenderer, &displayRendererInfo);
@@ -517,7 +536,7 @@ int main(int argc, char* argv[])
     JOYSTICK_Init();
 
     RiftConfigure();
-    RenderInit(true);
+    RenderInit();
     TermInit();
 
     bool done = false;
