@@ -1,5 +1,5 @@
 #include "keyboard.h"
-#include <SDL2/SDL.h>
+#include <SDL.h>
 #include <termios.h>
 
 extern "C" {

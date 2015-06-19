@@ -51,22 +51,22 @@ $L_FLAGS = [`sdl2-config --libs`.chomp,
             `freetype-config --libs`.chomp,
             '-lstdc++',
 #            '-lharfbuzz',
-            '-lOVR',
            ]
 
 if $PLATFORM == 'Darwin'
   $C_FLAGS += ['-DDARWIN', "-I../OculusSDK/LibOVR/Include"]
   $CPP_FLAGS += ['-DDARWIN', "-I../OculusSDK/LibOVR/Include"]
-  $L_FLAGS += ["-L../OculusSDK/LibOVR/Lib/Mac/Release/",
+  $L_FLAGS += ["-F../OculusSDK/LibOVR/Lib/Mac/Release/",
                '-framework Cocoa',
                '-framework OpenGL',
                '-framework CoreServices',
                '-framework ApplicationServices',
-               '-framework IOKit']
+               '-framework IOKit',
+               '-framework LibOVR']
 elsif $PLATFORM == 'Linux'
   $C_FLAGS += ['-DLINUX', "-I../ovr_sdk_linux_0.5.0.1/LibOVR/Include", "-I../ovr_sdk_linux_0.5.0.1/LibOVRKernel/Src"]
   $CPP_FLAGS += ['-DLINUX', "-I../ovr_sdk_linux_0.5.0.1/LibOVR/Include", "-I../ovr_sdk_linux_0.5.0.1/LibOVRKernel/Src"]
-  $L_FLAGS += ['-lGL', '-lm', '-lc', '-ldl', '-lutil']
+  $L_FLAGS += ['-lGL', '-lm', '-lc', '-ldl', '-lutil', '-lOVR']
 end
 
 $OBJECTS = ['riftty.o',

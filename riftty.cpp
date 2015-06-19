@@ -3,7 +3,7 @@
 #include "SDL.h"
 #include "SDL_opengl.h"
 #else
-#include "SDL2/SDL.h"
+#include "SDL.h"
 #endif
 
 #include <stdio.h>
@@ -42,8 +42,8 @@ extern "C" {
 }
 
 #ifdef DARWIN
-#include "../Src/OVR_CAPI.h"
-#include "../Src/OVR_CAPI_GL.h"
+#include <OVR_CAPI.h>
+#include <OVR_CAPI_GL.h>
 #else
 #include <OVR_CAPI.h>
 #include <OVR_CAPI_GL.h>

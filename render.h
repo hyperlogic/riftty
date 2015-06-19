@@ -3,7 +3,6 @@
 
 #include <vector>
 #include "abaci.h"
-#include "OVR.h"
 
 namespace gb {
     struct Quad;

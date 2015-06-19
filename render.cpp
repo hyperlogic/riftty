@@ -3,6 +3,7 @@
 #include "opengl.h"
 #include "win.h"
 #include "text.h"
+#include <cfloat>
 
 #include "FullbrightShader.h"
 #include "FullbrightVertColorShader.h"
