@@ -1,6 +1,8 @@
 riftty
 ============
 
+This repo is now read-only and archived, it uses an old Oculus SDK from DK1 era and is unlikely to work on newer HMDs. 
+
 Terminal emulator meant for use with the Oculus Rift headseat.
 
 Built with Oculus SDK 0.4.1 for DK2 support.
